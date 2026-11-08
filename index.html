@@ -1,5 +1,9 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f12">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Simulador BM">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
 <style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}[hidden]{display:none!important}</style>
 <title>Simulador de Movimentos BM</title>
 </head><body>
@@ -34,13 +38,13 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px
 .chip[aria-pressed="true"] small{color:#1a1205}
 .stage{grid-area:stage;position:relative;aspect-ratio:16/9;width:100%;border-radius:14px;overflow:hidden;background:#000;touch-action:none}
 canvas{display:block;width:100%;height:100%}
-.live{position:absolute;left:10px;top:30px;right:40%;font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none}
+.live{position:absolute;left:10px;top:46px;right:40%;font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none}
 .live span{background:rgba(0,0,0,.55);border-radius:6px;padding:2px 7px}
 .live .demo{background:var(--accent);color:#1a1205;font-family:var(--display);letter-spacing:.08em}
 .hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 20px);background:rgba(0,0,0,.62);border-radius:999px;padding:5px 14px;font-size:13px;font-weight:600;text-align:center;pointer-events:none;transition:color .2s}
 .hint.good{color:var(--ok)}.hint.warn{color:var(--accent)}
-.card{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,8,10,.62);padding:12px}
-.card>div{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-width:340px;width:100%;display:grid;gap:8px;text-align:center}
+.card{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,8,10,.62);padding:12px;overflow:auto}
+.card>div{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;max-width:360px;width:100%;display:grid;gap:8px;text-align:center;max-height:100%;overflow:auto;box-sizing:border-box}
 .card h3{margin:0;font-family:var(--display);font-size:22px;letter-spacing:.02em}
 .stars{font-size:26px;letter-spacing:4px;color:var(--accent)}
 .card p{margin:0;color:var(--muted)}
@@ -76,7 +80,7 @@ canvas{display:block;width:100%;height:100%}
 .ruler{position:relative;height:14px;font-size:10px;color:var(--muted);font-family:var(--display)}
 .ruler span{position:absolute;transform:translateX(-50%)}
 .lane{position:relative;height:30px}
-.lab{position:absolute;left:-58px;width:52px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted)}
+.tlab{position:absolute;left:-58px;width:52px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted)}
 .clip{position:absolute;inset:0;border-radius:6px;background:repeating-linear-gradient(90deg,#3d6f8f 0 46px,#4a7fa0 46px 48px);overflow:hidden}
 .cut{position:absolute;top:0;bottom:0;left:0;width:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.7) 0 6px,rgba(0,0,0,.5) 6px 12px);border-right:3px solid var(--accent);box-sizing:border-box}
 .cut.r{left:auto;right:0;border-right:0;border-left:3px solid var(--accent)}
@@ -88,6 +92,35 @@ canvas{display:block;width:100%;height:100%}
 .kmenu{position:absolute;top:calc(100% - 4px);left:calc(58px + (100% - 58px) * var(--m,1));transform:translateX(-100%);background:#232c35;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,.55);z-index:3;min-width:150px}
 .mi{padding:5px 10px;border-radius:5px}.mi.dim{color:var(--muted)}.mi.on{background:var(--accent);color:#1a1205;font-weight:700}
 @media (max-width:640px){.edui{grid-template-columns:1fr}.edcap{font-size:16px}}
+.topbar{display:flex;align-items:center;gap:8px;min-width:0}
+.topbar .chips{flex:1;min-width:0}
+.opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg span{font-family:var(--display);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 6px 0 8px}
+.seg button{font:inherit;font-size:12px;font-weight:600;color:var(--fg);background:none;border:0;border-radius:999px;padding:4px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#1a1205}
+.prog{font-family:var(--display);font-size:12px;color:var(--muted);margin-left:auto}
+.prog b{color:var(--ok)}
+.iconbtn{flex:none;font:inherit;font-size:12px;font-weight:700;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 11px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.iconbtn svg{width:14px;height:14px}
+.lvl{flex:none;align-self:center;font-family:var(--display);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding:0 2px 0 8px;white-space:nowrap}
+.lvl:first-child{padding-left:0}
+.chip.locked{color:var(--muted);border-style:dashed;cursor:not-allowed}
+.chip.locked svg{width:11px;height:11px;opacity:.8}
+.chip.cert{border-color:rgba(255,178,30,.5);color:var(--accent)}
+.chip.cert.ready{background:var(--ok);border-color:var(--ok);color:#06210f}
+.pad.want{box-shadow:0 0 0 3px var(--accent);animation:want .9s ease-in-out infinite alternate}
+@keyframes want{to{box-shadow:0 0 0 8px rgba(255,178,30,.15)}}
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(5,8,10,.82);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow:auto}
+.modal>div{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-width:420px;width:100%;display:grid;gap:10px;text-align:center;box-sizing:border-box}
+.modal h3{margin:0;font-family:var(--display);font-size:22px}
+.modal p{margin:0;color:var(--muted)}
+.modal img{width:100%;border-radius:8px;border:1px solid var(--line);-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.inp{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;-webkit-user-select:text;user-select:text}
+.inp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+a.btn{text-decoration:none;display:inline-block}
+.btn,.chip,.iconbtn,.seg button{touch-action:manipulation}
+.btn .sm{display:none}
 .cmd::before{content:"No controle: ";color:var(--accent);font-family:var(--display);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
 .pad{position:relative;width:min(36vw,190px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#1b232b 0 55%,#141a20 56%);border:1px solid var(--line);touch-action:none;justify-self:center;cursor:grab}
 #padL{grid-area:padL}#padR{grid-area:padR}
@@ -106,16 +139,33 @@ canvas{display:block;width:100%;height:100%}
 .gim output{font-family:var(--display);font-size:12px;font-variant-numeric:tabular-nums}
 .foot{grid-column:1/-1;margin:14px 0 0;font-size:12px;color:var(--muted);text-align:center}
 @media (orientation:landscape) and (max-height:560px){
-  .app{max-width:none;height:100%;gap:8px;padding-block:6px 6px;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;
-    grid-template-areas:"top top top" "padL stage padR" "info stage gim"}
-  .brand{display:none}
-  .stage{aspect-ratio:auto;height:100%}
-  .pad{width:min(24vw,46vh);align-self:center}
+  html,body{height:100%;overflow:hidden}
+  .app{max-width:none;height:100vh;height:100dvh;gap:6px 10px;padding-block:6px 6px;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"top top top" "padL stage padR" "info stage gim";align-content:stretch}
+  .brand,.opts .prog{display:none}
+  .top{display:flex;align-items:center;gap:8px}
+  .topbar{flex:1;min-width:0}
+  .opts{flex:none}
+  .seg span{padding:0 4px 0 6px}
+  .seg button{padding:3px 8px;font-size:11px}
+  .iconbtn span{display:none}
+  .topbar{gap:6px}
+  .opts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .chip{padding:4px 10px;font-size:12px}
+  .stage{aspect-ratio:auto;height:100%;min-height:0;border-radius:10px}
+  .pad{width:min(19vw,calc(100dvh - 150px));min-width:96px;align-self:center}
+  .btn .lg{display:none}.btn .sm{display:inline}
+  .lab{font-size:8.5px}
   .padname{display:none}
-  .desc,.cmd,.foot,.edit{display:none!important}
-  .info h2{font-size:14px}
-  #gim{height:18vh}
-  .gim{grid-auto-flow:column;align-items:center}
+  .info h2,.desc,.cmd,.foot,.edit{display:none!important}
+  .info .row .btn{font-size:12px;padding:6px 9px;border-radius:8px}
+  .info .row{gap:5px;flex-wrap:nowrap}
+  #btnEd{display:none}
+  .gim{grid-auto-flow:column;align-items:center;gap:6px}
+  #gim{writing-mode:horizontal-tb;height:24px;width:min(11vw,80px)}
+  .gim output{min-width:30px}
+  .hint{font-size:11.5px;padding:4px 10px;bottom:6px;max-width:calc(100% - 12px)}
+  .ed{grid-column:1/-1;grid-row:2/4}
 }
 @media (prefers-reduced-motion:reduce){.hint{transition:none}}
 </style>
@@ -123,7 +173,13 @@ canvas{display:block;width:100%;height:100%}
 <div class="app">
   <div class="top">
     <div class="brand"><b>Simulador de Movimentos</b><span>BM Outdoor Films · Modo 2</span></div>
-    <nav class="chips" id="chips" aria-label="Movimentos"></nav>
+    <div class="topbar"><nav class="chips" id="chips" aria-label="Movimentos"></nav>
+      <button class="iconbtn" id="btnFull" type="button" aria-label="Tela cheia"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 5V1h4M11 1h4v4M15 11v4h-4M5 15H1v-4"/></svg><span>Tela cheia</span></button></div>
+    <div class="opts">
+      <div class="seg" role="group" aria-label="Modo de voo"><span>Modo</span><button type="button" data-mode="cine">Cine</button><button type="button" data-mode="normal">Normal</button><button type="button" data-mode="sport">Sport</button></div>
+      <div class="seg" role="group" aria-label="Vento"><span>Vento</span><button type="button" data-wind="0">Sem</button><button type="button" data-wind="1">Fraco</button><button type="button" data-wind="2">Forte</button></div>
+      <span class="prog" id="progTxt"></span>
+    </div>
   </div>
 
   <div class="stage" id="stage">
@@ -139,7 +195,7 @@ canvas{display:block;width:100%;height:100%}
     <p class="cmd" id="mCmd"></p>
     <div class="edit" id="mEdit" hidden></div>
     <div class="row" style="justify-content:flex-start">
-      <button class="btn pri" id="btnDemo">Ver demonstração</button>
+      <button class="btn pri" id="btnDemo"><span class="lg">Ver demonstração</span><span class="sm">Demo</span></button>
       <button class="btn" id="btnReset">Reiniciar</button>
       <button class="btn" id="btnEd" hidden>Ver como fazer na edição</button>
     </div>
@@ -158,8 +214,8 @@ canvas{display:block;width:100%;height:100%}
         <div class="tlh">Timeline</div>
         <div class="tl" id="tl">
           <div class="ruler" id="ruler"></div>
-          <div class="lane"><span class="lab">Vídeo</span><div class="clip" id="clip"><i class="cut" id="cutL"></i><i class="cut r" id="cutR"></i></div></div>
-          <div class="lane"><span class="lab">Escala</span><div class="kfl"><i class="kline" id="kline"></i><i class="kd" id="kd1"></i><i class="kd" id="kd2"></i></div></div>
+          <div class="lane"><span class="tlab">Vídeo</span><div class="clip" id="clip"><i class="cut" id="cutL"></i><i class="cut r" id="cutR"></i></div></div>
+          <div class="lane"><span class="tlab">Escala</span><div class="kfl"><i class="kline" id="kline"></i><i class="kd" id="kd1"></i><i class="kd" id="kd2"></i></div></div>
           <div class="ph" id="ph"></div>
           <div class="kmenu" id="kmenu" hidden><div class="mi dim">Bezier</div><div class="mi dim">Ease in / Ease out</div><div class="mi on">✓ Linear</div></div>
         </div>
@@ -174,6 +230,7 @@ canvas{display:block;width:100%;height:100%}
   <div class="gim"><label for="gim">Gimbal</label><input type="range" id="gim" min="0" max="90" value="10"><output id="gimOut">-10°</output></div>
   <div class="pad" id="padR" aria-label="Stick direito"><span class="lab t">Frente</span><span class="lab b">Ré</span><span class="lab l">◀</span><span class="lab r">▶</span><div class="knob"></div><span class="padname">Direito · frente, ré e lados</span></div>
 
+  <div class="modal" id="modal" hidden></div>
   <p class="foot">Gimbal vai de 0° (horizonte) a 90° (olhando pra baixo). No computador: W/S sobe e desce, A/D gira, setas movem. Shift dá potência total.</p>
 </div>
 
@@ -190,6 +247,9 @@ const AIM_Z=10; // altura do ponto de mira na torre
 
 /* ---------------- missões ---------------- */
 const MIS={
+  aula0:{n:"Primeiro voo",d:"Aula 0: conheça os sticks antes dos movimentos. Decolar, pairar, subir, girar, andar pra frente e pros lados, voltar pro H e pousar. Um passo de cada vez.",
+    cmd:"siga o passo indicado. O stick que você precisa usar fica piscando.",st:[0,-30,.5,0,5],tut:true,home:true,
+    tip:"Repita o Primeiro voo até os comandos ficarem automáticos. No drone de verdade, faça o mesmo treino num campo aberto, longe de pessoas."},
   orbital:{n:"Orbital",d:"Dê uma volta completa em torno da torre mantendo ela no centro da tela, na mesma distância e altura.",
     cmd:"stick direito pro lado (roll) e stick esquerdo pro lado oposto (yaw), ao mesmo tempo. Direito pra esquerda + esquerdo pra direita = volta no sentido horário.",
     st:[0,-25,10,0,14],tip:"O segredo é a proporção: quanto mais roll, mais yaw. Ajuste só o stick esquerdo pra manter a torre na mira."},
@@ -243,10 +303,25 @@ const MIS={
   tilt:{n:"Tilt In / Out",d:"Tilt up: comece com a câmera olhando pro chão e avance subindo a câmera aos poucos até revelar o horizonte e a torre.",
     cmd:"stick direito pra frente e rodinha do gimbal subindo (de 70° até uns 15°), juntos e no mesmo ritmo.",
     st:[0,-80,18,0,70],tip:"Avanço e gimbal precisam terminar juntos. O inverso (recuar baixando a câmera até esconder o horizonte) é o tilt out, ótimo pra fechar vídeo."},
-  livre:{n:"Voo livre",d:"Treine os sticks à vontade. A torre é o seu ponto de referência.",
-    cmd:"esquerdo sobe, desce e gira. Direito vai pra frente, ré e lados.",st:[0,-30,10,0,10],free:true}
+  livre:{n:"Voo livre",d:"Treine à vontade, com bateria de verdade: quando ela ficar baixa, volte pro H e pouse antes que acabe. Cuidado com as árvores.",
+    cmd:"esquerdo sobe, desce e gira. Direito vai pra frente, ré e lados.",st:[0,-30,.5,0,8],free:true,home:true}
 };
-const ORDER=["aprox","afast","pedestal","pan","travel","revel","topdown","tilt","orbital","seguir","lateral","flyover","flythrough","espiral","parallax","livre"];
+const LEVELS=[{n:"Nível 1 · Básico",k:["aula0","aprox","afast","pedestal","pan","travel"]},
+  {n:"Nível 2 · Intermediário",k:["revel","topdown","tilt","orbital","seguir"]},
+  {n:"Nível 3 · Avançado",k:["lateral","flyover","flythrough","espiral","parallax"]}];
+const ORDER=[...LEVELS.flatMap(l=>l.k),"livre"],CORE=ORDER.filter(k=>k!=="livre");
+const TUT=[
+  {t:"Decolar",i:"Empurre o stick esquerdo pra cima e suba até 5 m de altura (veja ALT no canto da tela).",h:"Stick esquerdo pra cima: suba até 5 m",pad:"L"},
+  {t:"Pairar",i:"Solte os dois sticks. O drone fica parado sozinho no ar, o GPS segura ele. Espere 3 segundos.",h:"Solte os sticks e espere 3 s",pad:""},
+  {t:"Subir",i:"Stick esquerdo pra cima de novo, até 12 m.",h:"Stick esquerdo pra cima: até 12 m",pad:"L"},
+  {t:"Girar",i:"Stick esquerdo pro lado e dê uma volta completa. O drone gira no lugar, sem sair dele.",h:"Stick esquerdo pro lado: uma volta completa",pad:"L"},
+  {t:"Pra frente",i:"Stick direito pra frente e ande uns 12 m.",h:"Stick direito pra frente: ande 12 m",pad:"R"},
+  {t:"Pros lados",i:"Stick direito pro lado e ande uns 8 m de lado.",h:"Stick direito pro lado: ande 8 m",pad:"R"},
+  {t:"Voltar pro H",i:"Use os dois sticks pra voltar pra cima do H, o ponto de partida. O minimapa ajuda.",h:"Volte pra cima do H (veja o minimapa)",pad:"B"},
+  {t:"Pousar",i:"Stick esquerdo pra baixo, devagar, até tocar o chão. Perto do chão, mais devagar ainda.",h:"Stick esquerdo pra baixo, devagar, até o chão",pad:"L"}];
+const MODES={cine:{n:"CINE",vmax:6,vz:2.5,yaw:30},normal:{n:"NORMAL",vmax:10,vz:4,yaw:60},sport:{n:"SPORT",vmax:16,vz:5,yaw:100}};
+let mode="normal",windLv=0;try{const o=JSON.parse(localStorage.getItem("bm-sim-opts")||"{}");if(MODES[o.mode])mode=o.mode;if([0,1,2].includes(o.wind))windLv=o.wind}catch(e){}
+const UNLOCK=location.hash==="#liberar-tudo";
 
 /* ---------------- cenário ---------------- */
 let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};
@@ -275,7 +350,7 @@ const WALL={x0:-32,x1:32,y0:-16,y1:-14,z0:0,z1:16,c:"#8a8f86"};
 const S={x:0,y:0,z:10,h:0,vx:0,vy:0,vz:0,yr:0,g:10};
 const U={lx:0,ly:0,rx:0,ry:0};       // toque
 const KB={};                            // teclado
-let cur="orbital",demo=false,paused=false,run=null,trail=[],replay=null,ZK=1,lastCard="",ED=null;
+let cur="aula0",demo=false,paused=false,run=null,trail=[],replay=null,ZK=1,lastCard="",ED=null;
 let best={};try{best=JSON.parse(localStorage.getItem("bm-sim-best")||"{}")||{}}catch(e){}
 
 const $=id=>document.getElementById(id);
@@ -339,6 +414,10 @@ function render(){
   {const rd=clipPoly([cam(-150,ROADY-4,.02),cam(150,ROADY-4,.02),cam(150,ROADY+4,.02),cam(-150,ROADY+4,.02)]);
    if(rd.length>2){ctx.beginPath();rd.forEach((c,i)=>{const s=scr(c);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});ctx.closePath();ctx.fillStyle="#5e625f";ctx.fill()}
    ctx.strokeStyle="rgba(255,240,200,.55)";ctx.lineWidth=1.5;ctx.beginPath();for(let x=-150;x<150;x+=8)seg([x,ROADY,.03],[x+4,ROADY,.03]);ctx.stroke();}
+  // H de decolagem
+  if(MIS[cur].home&&(S.z>2.5||Math.hypot(S.x-MIS[cur].st[0],S.y-MIS[cur].st[1])>4)){const hx=MIS[cur].st[0],hy=MIS[cur].st[1],rg=[];for(let i=0;i<20;i++){const a=i/20*TAU;rg.push(cam(hx+Math.cos(a)*2.2,hy+Math.sin(a)*2.2,.03))}
+    const hc=clipPoly(rg);if(hc.length>2){ctx.beginPath();hc.forEach((c,i)=>{const q=scr(c);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.closePath();ctx.fillStyle="rgba(255,178,30,.85)";ctx.fill()}
+    ctx.strokeStyle="#1a1205";ctx.lineWidth=2.5;ctx.beginPath();seg([hx-.8,hy-1,.04],[hx-.8,hy+1,.04]);seg([hx+.8,hy-1,.04],[hx+.8,hy+1,.04]);seg([hx-.8,hy,.04],[hx+.8,hy,.04]);ctx.stroke()}
   // base da torre
   const ring=[];for(let i=0;i<24;i++){const a=i/24*TAU;ring.push(cam(Math.cos(a)*8,Math.sin(a)*8,0))}
   const rc=clipPoly(ring);if(rc.length>2){ctx.beginPath();rc.forEach((c,i)=>{const s=scr(c);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});ctx.closePath();ctx.fillStyle="rgba(222,214,196,.75)";ctx.fill()}
@@ -383,6 +462,11 @@ function osd(){
   const txt=`ALT ${S.z.toFixed(1)}m  DIST ${d.toFixed(1)}m  ${v.toFixed(1)}m/s`;
   ctx.fillStyle="rgba(0,0,0,.45)";const tw=ctx.measureText(txt).width;ctx.fillRect(22,8,tw+10,16);
   ctx.fillStyle="#fff";ctx.fillText(txt,27,10);
+  const wv=windVec(),ws=Math.hypot(wv[0],wv[1]),bat=Math.max(0,Math.round(S.bat));
+  const t2=`${MODES[activeMode()].n}  BAT ${bat}%${ws>.2?`  VENTO ${ws.toFixed(0)}m/s`:""}`;
+  ctx.fillStyle="rgba(0,0,0,.45)";const tw2=ctx.measureText(t2).width;ctx.fillRect(22,26,tw2+10+(ws>.2?14:0),16);
+  ctx.fillStyle=bat<=25?"#ff5a4f":"#fff";ctx.fillText(t2,27,28);
+  if(ws>.2){const ax=27+tw2+8,ay=34,ang=Math.atan2(wv[0],wv[1])-S.h;ctx.save();ctx.translate(ax,ay);ctx.rotate(ang);ctx.strokeStyle="#9fd8ff";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,5);ctx.lineTo(0,-5);ctx.moveTo(-3,-2);ctx.lineTo(0,-5);ctx.lineTo(3,-2);ctx.stroke();ctx.restore()}
   // minimapa
   const m=Math.round(clamp(W*.2,70,112)),mx=W-m-8,my=10,sc=m/170,ox=mx+m/2,oy=my+m/2;
   ctx.fillStyle="rgba(10,16,20,.6)";ctx.fillRect(mx,my,m,m);ctx.strokeStyle="rgba(255,255,255,.25)";ctx.strokeRect(mx+.5,my+.5,m-1,m-1);
@@ -393,6 +477,7 @@ function osd(){
   {const a=P(-150,ROADY+4),b=P(150,ROADY-4);ctx.fillStyle="rgba(150,150,145,.5)";ctx.fillRect(a[0],a[1],b[0]-a[0],b[1]-a[1])}
   if(MIS[cur].car){const c=P(CAR.x,ROADY);ctx.fillStyle="#ff5a4f";ctx.fillRect(c[0]-3,c[1]-2,6,4)}
   if(MIS[cur].wall){const a=P(WALL.x0,WALL.y1),b=P(WALL.x1,WALL.y0);ctx.fillStyle="#8a8f86";ctx.fillRect(a[0],a[1],b[0]-a[0],Math.max(2,b[1]-a[1]))}
+  if(MIS[cur].home){const h=P(MIS[cur].st[0],MIS[cur].st[1]);ctx.fillStyle="#ffb21e";ctx.beginPath();ctx.arc(h[0],h[1],3.5,0,TAU);ctx.fill()}
   ctx.fillStyle="#e8e2d4";const t=P(-3,3);ctx.fillRect(t[0],t[1],6*sc+1,6*sc+1);
   ctx.strokeStyle="rgba(61,220,132,.8)";ctx.lineWidth=1.2;ctx.beginPath();trail.forEach((p,i)=>{const q=P(p[0],p[1]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.stroke();
   const dp=P(S.x,S.y);ctx.translate(dp[0],dp[1]);ctx.rotate(S.h);ctx.fillStyle="#ffb21e";ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(5,5);ctx.lineTo(0,2);ctx.lineTo(-5,5);ctx.closePath();ctx.fill();
@@ -412,7 +497,28 @@ function subj(tx=0,ty=0,tz=AIM_Z){
 function evaluate(dt){
   const m=cur,s=subj(),ed=s.e/D2R,sp=Math.hypot(S.vx,S.vy);
   let ok=true,hint="",prog=0,done=false,lvl="warn";
-  if(m==="orbital"){
+  if(m==="aula0"){
+    const n=TUT.length;if(run.ts===undefined){run.ts=0;run.s0=[S.x,S.y];run.tt=0;run.ya=0;run.hp=S.h;tutUI()}
+    if(run.ts<n){
+      const i=run.ts;let pass=false;run.ya+=Math.abs(wrap(S.h-run.hp));run.hp=S.h;
+      const mv=Math.hypot(S.x-run.s0[0],S.y-run.s0[1]),hx=MIS.aula0.st[0],hy=MIS.aula0.st[1];
+      if(i===0)pass=S.z>=5;
+      else if(i===1){const calm=sp<.5&&Math.abs(S.vz)<.3&&run.idle;run.tt=calm?run.tt+dt:0;pass=run.tt>=3}
+      else if(i===2)pass=S.z>=12;
+      else if(i===3)pass=run.ya>=TAU*.97;
+      else if(i===4||i===5)pass=mv>=(i===4?12:8);
+      else if(i===6)pass=Math.hypot(S.x-hx,S.y-hy)<2.5&&sp<1.5;
+      else if(i===7)pass=S.z<=.52;
+      if(pass){run.ts++;run.s0=[S.x,S.y];run.tt=0;run.ya=0;tutUI();
+        if(run.ts<n){setHint("Boa! Agora: "+TUT[run.ts].h,"good");run.hintT=1.6}}
+      hint=run.ts<n?TUT[run.ts].h:"";
+      if(i===1&&!run.idle)hint="Solte os dois sticks: o drone para sozinho";
+      if(i===6&&Math.hypot(S.x-hx,S.y-hy)<2.5&&sp>=1.5)hint="Chegou no H: solte os sticks pra parar";
+      if(i===7&&S.z<2&&S.vz<-1.6)hint="Mais devagar perto do chão!";
+    }
+    prog=run.ts/n;done=run.ts>=n;ok=!run.hard;lvl=run.hard?"warn":"good";
+    if(run.hard&&!done)hint="Pouso duro! Perto do chão, desça bem devagar";
+  }else if(m==="orbital"){
     const a=Math.atan2(S.x,S.y);if(run.pa!==undefined)run.acc+=wrap(a-run.pa);run.pa=a;
     prog=Math.abs(run.acc)/TAU;done=prog>=1;
     const cen=Math.abs(ed)<10,dOk=Math.abs(s.d-25)<6,zOk=Math.abs(S.z-10)<4;ok=cen&&dOk&&zOk;
@@ -516,6 +622,7 @@ function evaluate(dt){
     prog=clamp((CAR.x+88)/176,0,1);done=CAR.x>=88;
     const moving=run.t>2.5,cen=Math.abs(ec)<10,side=Math.abs(S.y-40)<5,zOk=S.z>3&&S.z<12;ok=!moving||(cen&&side&&zOk&&Math.abs(ex)<10);
     if(!moving)hint="Prepare-se: o carro vai sair pela esquerda";
+    else if(activeMode()==="cine"&&ex>10)hint="Em Cine o drone não alcança o carro: troque pra Normal";
     else if(ex>10)hint="Ficou pra trás: mais stick direito pra direita";
     else if(ex<-10)hint="Passou do carro: alivie o stick direito";
     else if(!side)hint=S.y>40?"Perto demais da estrada: stick direito um pouco pra trás":"Longe da estrada: stick direito um pouco pra frente";
@@ -535,6 +642,7 @@ function evaluate(dt){
     prog=clamp((CAR.x+88)/176,0,1);done=CAR.x>=88;
     const moving=run.t>2.5,cen=Math.abs(ec)<10,dOk=c.d>12&&c.d<28,zOk=S.z>5&&S.z<15;ok=!moving||(cen&&dOk&&zOk);
     if(!moving)hint="Prepare-se: o carro vai sair";
+    else if(activeMode()==="cine"&&c.d>28)hint="Em Cine o drone não alcança o carro: troque pra Normal";
     else if(c.d>40)hint="O carro fugiu: stick direito todo pra frente";
     else if(c.d>28)hint="Ficou pra trás: mais stick direito pra frente";
     else if(c.d<12)hint="Perto demais: alivie o stick direito";
@@ -561,7 +669,10 @@ function evaluate(dt){
     else if(pg-pd>.3)hint="Avance mais: stick direito pra frente";
     else if(sp<.8&&!done)hint="Stick direito pra frente e gimbal subindo, juntos";
     else{hint="Isso, o horizonte aparecendo no ritmo certo";lvl="good"}
-  }else{hint="Voo livre: explore os comandos";lvl="good";ok=true}
+  }else{
+    hint=S.bat<=10?"Bateria crítica: pouso automático":S.bat<=25?"Bateria baixa: volte pro H e pouse":"Voo livre: explore os comandos. Fique de olho na bateria";lvl=S.bat<=25?"warn":"good";ok=true;
+    if(S.bat<=10&&S.z<=.52&&run.started){paused=true;showCard(`<h3>Bateria acabou</h3><p>${Math.hypot(S.x-MIS.livre.st[0],S.y-MIS.livre.st[1])<4?"Pousou no H, bem na hora.":"O drone pousou sozinho longe do H. No drone de verdade, comece a voltar quando a bateria chegar em 30%."}</p><div class="row"><button class="btn pri" data-act="try">Voar de novo</button></div>`);return}
+  }
   run.okNow=ok;run.prog=prog;
   if(run.started&&!(MIS[m].car&&run.t<=2.5)){run.total+=dt;if(ok)run.good+=dt}
   run.hintT-=dt;if(run.hintT<=0){setHint(hint,lvl);run.hintT=.35}
@@ -573,9 +684,14 @@ function setHint(t,l){const h=$("hint");h.textContent=t;h.className="hint "+l}
 function autopilot(){
   const s=subj(),out={lx:0,ly:0,rx:0,ry:0};
   const yawFix=r=>inv(clamp(r/PHYS.yawMax,-1,1));
-  const body=(vx,vy)=>{const a=Math.sin(S.h),b=Math.cos(S.h);out.ry=inv(clamp((vx*a+vy*b)/PHYS.vmax,-1,1));out.rx=inv(clamp((vx*b-vy*a)/PHYS.vmax,-1,1))};
+  const body=(vx,vy)=>{const wv=windVec();vx-=wv[0]*.32;vy-=wv[1]*.32;const a=Math.sin(S.h),b=Math.cos(S.h);out.ry=inv(clamp((vx*a+vy*b)/PHYS.vmax,-1,1));out.rx=inv(clamp((vx*b-vy*a)/PHYS.vmax,-1,1))};
   const track=(tx,ty,tvx,tvy,e)=>{const dx=tx-S.x,dy=ty-S.y,d2=Math.max(4,dx*dx+dy*dy);return yawFix((dy*(tvx-S.vx)-dx*(tvy-S.vy))/d2+2*e)};
-  if(cur==="orbital"){
+  if(cur==="aula0"){
+    const i=run.ts||0,hx=MIS.aula0.st[0],hy=MIS.aula0.st[1];S.gt=5;
+    if(i===0)out.ly=.6;else if(i===2)out.ly=.6;else if(i===3)out.lx=.8;else if(i===4)out.ry=.55;else if(i===5)out.rx=.55;
+    else if(i===6){body(clamp((hx-S.x)*.7,-4,4),clamp((hy-S.y)*.7,-4,4));if(Math.hypot(S.x-hx,S.y-hy)<1.2){out.rx=0;out.ry=0}}
+    else if(i===7)out.ly=S.z>3?-.6:-.32;
+  }else if(cur==="orbital"){
     out.rx=-.6;const v=curve(.6)*PHYS.vmax;
     out.lx=yawFix(v/Math.max(5,s.d)+1.6*s.e);
     out.ry=inv(clamp((s.d-25)*.06,-.5,.5));out.ly=inv(clamp((10-S.z)*.15,-.5,.5));S.gt=14;
@@ -637,18 +753,34 @@ function userSticks(){
   return o;
 }
 let lastLive="";
+function activeMode(){return demo?"normal":mode}
+function windVec(){if(!windLv||!run)return[0,0];const b=windLv===1?3:7,t=run.wt||0,g=b*(.75+.2*Math.sin(t*.7)+.12*Math.sin(t*2.3+1));return[Math.sin(run.wd)*g,Math.cos(run.wd)*g]}
 function step(dt){
+  {const M=MODES[activeMode()];PHYS.vmax=M.vmax;PHYS.vz=M.vz;PHYS.yawMax=M.yaw*D2R}
   const s=demo?autopilot():userSticks();
+  if(MIS[cur].free&&S.bat<=10){s.ly=Math.min(s.ly,-.45);if(S.bat<=0){s.lx=s.rx=s.ry=0}}
+  run.idle=Math.abs(s.lx)+Math.abs(s.ly)+Math.abs(s.rx)+Math.abs(s.ry)<.06;
+  run.wt=(run.wt||0)+dt;
   if(!demo){S.gt=+$("gim").value}else{$("gim").value=Math.round(S.gt)}
   if(!run.started&&(demo||Math.abs(s.lx)+Math.abs(s.ly)+Math.abs(s.rx)+Math.abs(s.ry)>.1))run.started=true;
   if(MIS[cur].car){run.t+=dt;if(run.t>2.5&&CAR.x<88)CAR.x=Math.min(88,CAR.x+CAR_V*dt)}
   const fwd=curve(s.ry)*PHYS.vmax,rt=curve(s.rx)*PHYS.vmax;
   sh=Math.sin(S.h);ch=Math.cos(S.h);
-  const tvx=fwd*sh+rt*ch,tvy=fwd*ch-rt*sh,k=1-Math.exp(-dt/PHYS.tau);
+  let tvx=fwd*sh+rt*ch,tvy=fwd*ch-rt*sh;const k=1-Math.exp(-dt/PHYS.tau);
+  const grounded=S.z<=.51&&s.ly<=.05;
+  const wv=windVec();
+  if(grounded){tvx=0;tvy=0;S.vx=0;S.vy=0;run.anchor=null}
+  else if(Math.abs(s.rx)+Math.abs(s.ry)<.04){if(!run.anchor)run.anchor=[S.x,S.y];tvx=(run.anchor[0]-S.x)*.9+wv[0]*.1;tvy=(run.anchor[1]-S.y)*.9+wv[1]*.1}
+  else{run.anchor=null;tvx+=wv[0]*.32;tvy+=wv[1]*.32}
   S.vx+=(tvx-S.vx)*k;S.vy+=(tvy-S.vy)*k;S.vz+=(curve(s.ly)*PHYS.vz-S.vz)*k;
-  S.yr+=(curve(s.lx)*PHYS.yawMax-S.yr)*(1-Math.exp(-dt/.15));
+  S.yr+=((grounded?0:curve(s.lx)*PHYS.yawMax)-S.yr)*(1-Math.exp(-dt/.15));
+  const wasAir=S.z>.52,vz0=S.vz;
   S.x=clamp(S.x+S.vx*dt,-150,150);S.y=clamp(S.y+S.vy*dt,-150,150);S.z=clamp(S.z+S.vz*dt,.5,120);S.h+=S.yr*dt;
   if(S.z<=.5&&S.vz<0)S.vz=0;
+  if(wasAir&&S.z<=.5&&vz0<-1.8&&run.started){run.hard=true;run.total+=4}
+  if(!grounded)S.bat-=dt*(.32+(activeMode()==="sport"?.18:0)+windLv*.06+Math.max(0,s.ly)*.15);
+  if(MIS[cur].free&&S.bat<=0)S.bat=0;
+  if(!MIS[cur].free)S.bat=Math.max(S.bat,30);
   S.g+=clamp(S.gt-S.g,-50*dt,50*dt);
   $("gimOut").textContent=`-${Math.round(S.g)}°`;
   const lt=trail[trail.length-1];if(!lt||Math.hypot(lt[0]-S.x,lt[1]-S.y)>1.2){trail.push([S.x,S.y]);if(trail.length>400)trail.shift()}
@@ -656,9 +788,12 @@ function step(dt){
   // colisão
   if(Math.abs(S.x)<3.6&&Math.abs(S.y)<3.6&&S.z<21.3)return crash("Bateu na torre");
   if(MIS[cur].gate&&GATE.some(b=>S.x>b.x0-.5&&S.x<b.x1+.5&&S.y>b.y0-.5&&S.y<b.y1+.5&&S.z>b.z0-.3&&S.z<b.z1+.4))return crash("Bateu no portal");
+  for(const t of TREES){const dx=S.x-t.x,dy=S.y-t.y;if(Math.abs(dx)>t.r+1||Math.abs(dy)>t.r+1)continue;const d=Math.hypot(dx,dy),mz=t.h*.62;
+    if((d<.6&&S.z<mz)||((d/(t.r+.3))**2+((S.z-mz)/(t.r*1.25+.3))**2<1))return crash("Bateu numa árvore")}
   if(MIS[cur].wall&&S.x>WALL.x0-.5&&S.x<WALL.x1+.5&&S.y>WALL.y0-.6&&S.y<WALL.y1+.6&&S.z<WALL.z1+.4)return crash("Bateu no muro");
   // sticks na tela
   setKnob(padL,s.lx,s.ly);setKnob(padR,s.rx,s.ry);
+  {const w=!demo&&MIS[cur].tut&&run.ts!==undefined&&run.ts<TUT.length?TUT[run.ts].pad:"";padL.el.classList.toggle("want",w==="L"||w==="B");padR.el.classList.toggle("want",w==="R"||w==="B")}
   const parts=describe(s);const html=(demo?'<span class="demo">DEMONSTRAÇÃO</span>':"")+parts.map(p=>`<span>${p}</span>`).join("");
   if(html!==lastLive){$("live").innerHTML=html;lastLive=html}
   evaluate(dt);
@@ -680,21 +815,27 @@ function setKnob(p,x,y){const lim=p.el.clientWidth/2-p.knob.offsetWidth/2;p.knob
 const padL=makePad($("padL"),"lx","ly"),padR=makePad($("padR"),"rx","ry");
 function takeOver(){if(demo){demo=false;setHint("Você assumiu o controle","warn");run.hintT=1.2}}
 
-addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"&&e.code.startsWith("Arrow"))return;const c=e.key==="Shift"?"Shift":e.code;KB[c]=true;if(/^(Arrow|KeyW|KeyA|KeyS|KeyD)/.test(c)){takeOver();if(c.startsWith("Arrow"))e.preventDefault()}});
+addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"&&(e.target.type==="text"||e.code.startsWith("Arrow")))return;const c=e.key==="Shift"?"Shift":e.code;KB[c]=true;if(/^(Arrow|KeyW|KeyA|KeyS|KeyD)/.test(c)){takeOver();if(c.startsWith("Arrow"))e.preventDefault()}});
 addEventListener("keyup",e=>{KB[e.key==="Shift"?"Shift":e.code]=false});
 addEventListener("blur",()=>{for(const k in KB)KB[k]=false});
 
 /* ---------------- fluxo ---------------- */
 function start(key,withDemo){
   cur=key;demo=!!withDemo;paused=false;$("card").hidden=true;
-  const st0=MIS[key].st;Object.assign(S,{x:st0[0],y:st0[1],z:st0[2],h:st0[3],g:st0[4],gt:st0[4],vx:0,vy:0,vz:0,yr:0});
+  if(!unlocked(key))key=firstOpen();cur=key;
+  const st0=MIS[key].st;Object.assign(S,{x:st0[0],y:st0[1],z:st0[2],h:st0[3],g:st0[4],gt:st0[4],vx:0,vy:0,vz:0,yr:0,bat:100});
+  padL.el.classList.remove("want");padR.el.classList.remove("want");
   $("gim").value=st0[4];trail=[];
-  run={good:0,total:0,prog:0,acc:0,pa:undefined,started:false,okNow:true,hintT:0,t:0,rec:[],rt:0,ema:0};replay=null;CAR.x=-88;
+  run={good:0,total:0,prog:0,acc:0,pa:undefined,started:false,okNow:true,hintT:0,t:0,rec:[],rt:0,ema:0,wd:Math.random()*TAU,wt:0};replay=null;CAR.x=-88;
   const m=MIS[key];$("mName").textContent=m.n;$("mDesc").textContent=m.d;$("mCmd").textContent=m.cmd;
   $("mEdit").hidden=!m.edit;if(m.edit)$("mEdit").innerHTML=`<h3>Na edição · como fazer o keyframe</h3><ol>${m.edit.map(x=>`<li>${x}</li>`).join("")}</ol>`;
   $("btnDemo").hidden=!!m.free;$("btnEd").hidden=!m.edit;
-  renderChips();lastLive="";
+  renderChips();lastLive="";if(m.tut)tutUI();
 }
+function tutUI(){if(cur!=="aula0"||!run)return;const i=Math.min(run.ts||0,TUT.length-1);$("mName").textContent=`Primeiro voo · passo ${i+1} de ${TUT.length}: ${TUT[i].t}`;$("mCmd").textContent=TUT[i].i}
+function unlocked(k){if(UNLOCK||k==="livre")return true;const i=ORDER.indexOf(k);return i<=0||best[ORDER[i-1]]!==undefined}
+function firstOpen(){return CORE.find(k=>best[k]===undefined&&unlocked(k))||"aula0"}
+function doneCount(){return CORE.filter(k=>best[k]!==undefined).length}
 function finish(){
   paused=true;const sc=run.total>0?Math.round(run.good/run.total*100):100;const m=MIS[cur];
   const next=ORDER[(ORDER.indexOf(cur)+1)%ORDER.length];
@@ -702,11 +843,15 @@ function finish(){
   if(demo){
     html=`<h3>Fim da demonstração</h3><p>Repare nos sticks: ${m.cmd}</p><div class="row"><button class="btn pri" data-act="try">Tentar agora</button><button class="btn" data-act="demo">Ver de novo</button></div>`;
   }else{
-    const stars=sc>=85?3:sc>=65?2:1;
+    const stars=sc>=85?3:sc>=65?2:1,first=best[cur]===undefined;
     if(!best[cur]||sc>best[cur]){best[cur]=sc;try{localStorage.setItem("bm-sim-best",JSON.stringify(best))}catch(e){}}
+    const allDone=doneCount()===CORE.length;let lvlMsg="";
+    const li=LEVELS.findIndex(l=>l.k.includes(cur));
+    if(first&&li>=0&&LEVELS[li].k.every(k=>best[k]!==undefined))lvlMsg=`<p class="score" style="color:var(--ok)">${LEVELS[li].n} concluído!${LEVELS[li+1]?` ${LEVELS[li+1].n} liberado.`:" Você completou a trilha."}</p>`;
+    else if(first&&next!=="livre")lvlMsg=`<p>Liberado: ${MIS[next].n}</p>`;
     html=`<h3>${m.n} completo</h3><div class="stars" aria-label="${stars} de 3 estrelas">${"★".repeat(stars)}<span style="opacity:.25">${"★".repeat(3-stars)}</span></div>
       <p class="score">Precisão: ${sc}% · Recorde: ${best[cur]}%</p>${sc<85?`<p>${m.tip}</p>`:"<p>Movimento limpo, pronto pra gravar de verdade.</p>"}
-      <div class="row"><button class="btn pri" data-act="try">Tentar de novo</button><button class="btn" data-act="next" data-next="${next}">Próximo: ${MIS[next].n}</button></div>`;
+      ${lvlMsg}<div class="row">${allDone?'<button class="btn pri" data-act="cert">Gerar certificado</button>':""}<button class="btn${allDone?"":" pri"}" data-act="try">Tentar de novo</button><button class="btn" data-act="next" data-next="${next}">Próximo: ${MIS[next].n}</button></div>`;
   }
   if(m.dolly){const ep=editPlan();run.ep=ep;if(ep){
     html=html.replace('btn pri" data-act="try"','btn" data-act="try"').replace('<div class="row">',`<p class="score">Na edição: zoom de 100% a ${Math.round(ep.k*100)}% · a torre varia ${ep.dev.toFixed(1).replace(".",",")}% de tamanho</p><p>Keyframe 1: 100% no primeiro quadro · Keyframe 2: ${Math.round(ep.k*100)}% no último quadro (${ep.T.toFixed(1).replace(".",",")} s depois) · interpolação linear.</p><p>${ep.dev<3?"Abaixo de 3% ninguém percebe. Pode editar.":ep.dev<6?"Dá pra notar a torre respirando. Tente segurar a pressão mais igual.":"A torre pulsa na edição: a velocidade variou demais."}</p><div class="row"><button class="btn pri" data-act="edit">Ver resultado da edição</button><button class="btn" data-act="ed">Como fazer na edição</button>`)}}
@@ -723,14 +868,88 @@ function editPlan(){
 function startReplay(){$("card").hidden=true;replay={t:-.6,j:0};setHint("Depois da edição: keyframe linear de escala","good")}
 function crash(msg){
   paused=true;demo=false;
-  showCard(`<h3>${msg}!</h3><p>Sem problema, no simulador o drone não quebra. Mantenha distância dos obstáculos.</p><div class="row"><button class="btn pri" data-act="try">Tentar de novo</button><button class="btn" data-act="demo">Ver demonstração</button></div>`);
+  showCard(`<h3>${msg}!</h3><p>Sem problema, no simulador o drone não quebra. Mantenha distância dos obstáculos${windLv?" e lembre que o vento empurra o drone":""}.</p><div class="row"><button class="btn pri" data-act="try">Tentar de novo</button><button class="btn" data-act="demo">Ver demonstração</button></div>`);
 }
 function showCard(html){const c=$("card");c.innerHTML=`<div>${html}</div>`;c.hidden=false;
-  c.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const a=b.dataset.act;if(a==="try")start(cur,false);else if(a==="demo")start(cur,true);else if(a==="edit")startReplay();else if(a==="ed")startEditor();else start(b.dataset.next,false)}));
+  c.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const a=b.dataset.act;if(a==="try")start(cur,false);else if(a==="demo")start(cur,true);else if(a==="edit")startReplay();else if(a==="ed")startEditor();else if(a==="cert")certForm();else start(b.dataset.next,false)}));
   const f=c.querySelector("button");if(f)f.focus({preventScroll:true});}
+const LOCK='<svg viewBox="0 0 12 12" fill="currentColor"><path d="M3 5V3.6a3 3 0 0 1 6 0V5h.6c.5 0 .9.4.9.9v4.7c0 .5-.4.9-.9.9H2.4a.9.9 0 0 1-.9-.9V5.9c0-.5.4-.9.9-.9H3zm1.4 0h3.2V3.6a1.6 1.6 0 0 0-3.2 0V5z"/></svg>';
+function chipHTML(k){const lk=!unlocked(k);return`<button class="chip${lk?" locked":""}" id="chip-${k}" data-k="${k}" aria-pressed="${k===cur}"${lk?' aria-disabled="true"':""}>${lk?LOCK:""}${MIS[k].n}${best[k]!==undefined?`<small>${best[k]}%</small>`:""}</button>`}
 function renderChips(){
-  $("chips").innerHTML=ORDER.map(k=>`<button class="chip" id="chip-${k}" data-k="${k}" aria-pressed="${k===cur}">${MIS[k].n}${best[k]!==undefined?`<small>${best[k]}%</small>`:""}</button>`).join("");
-  $("chips").querySelectorAll(".chip").forEach(b=>b.addEventListener("click",()=>start(b.dataset.k,false)));
+  const n=doneCount(),all=n===CORE.length,ch=$("chips");
+  ch.innerHTML=LEVELS.map(l=>`<span class="lvl">${l.n}</span>`+l.k.map(chipHTML).join("")).join("")+`<span class="lvl">Treino</span>`+chipHTML("livre")+
+    `<button class="chip cert${all?" ready":""}" id="chip-cert">Certificado ${all?"":`${n}/${CORE.length}`}</button>`;
+  ch.querySelectorAll(".chip[data-k]").forEach(b=>b.addEventListener("click",()=>{const k=b.dataset.k;
+    if(!unlocked(k)){const p=ORDER[ORDER.indexOf(k)-1];setHint(`Complete "${MIS[p].n}" pra liberar "${MIS[k].n}"`,"warn");if(run)run.hintT=2.2;return}
+    if(ED)endEditor();start(k,false)}));
+  $("chip-cert").addEventListener("click",()=>{if(all)certForm();else{setHint(`Complete todos os movimentos pra gerar o certificado (faltam ${CORE.length-n})`,"warn");if(run)run.hintT=2.2}});
+  $("progTxt").innerHTML=`<b>${n}</b>/${CORE.length} concluídos`;
+  const c=$("chip-"+cur);if(c)ch.scrollLeft=c.offsetLeft-ch.clientWidth/2+c.offsetWidth/2;
+}
+/* ---------------- opções: modo de voo, vento, tela cheia ---------------- */
+function syncOpts(){document.querySelectorAll("[data-mode]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===mode));document.querySelectorAll("[data-wind]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.wind===windLv));
+  try{localStorage.setItem("bm-sim-opts",JSON.stringify({mode,wind:windLv}))}catch(e){}}
+document.querySelectorAll("[data-mode]").forEach(b=>b.addEventListener("click",()=>{mode=b.dataset.mode;syncOpts();setHint(`Modo ${MODES[mode].n}: ${mode==="cine"?"lento e suave, o melhor pra filmar":mode==="sport"?"rápido, bom pra perseguir, ruim pra filmar suave":"o equilíbrio entre os dois"}`,"good");if(run)run.hintT=2.2}));
+document.querySelectorAll("[data-wind]").forEach(b=>b.addEventListener("click",()=>{windLv=+b.dataset.wind;syncOpts();setHint(windLv?"Vento ligado: o drone vai ser empurrado e você corrige nos sticks":"Sem vento","good");if(run)run.hintT=2.2}));
+syncOpts();
+const isIOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const standalone=matchMedia("(display-mode: standalone),(display-mode: fullscreen)").matches||navigator.standalone;
+if(standalone)$("btnFull").hidden=true;
+$("btnFull").addEventListener("click",async()=>{
+  const el=document.documentElement,req=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document);return}
+  if(req&&!isIOS){try{await req.call(el);try{await screen.orientation.lock("landscape")}catch(e){}return}catch(e){}}
+  openModal(`<h3>Tela cheia</h3>${isIOS?`<p>No iPhone, o navegador não deixa um site esconder as barras. O jeito é instalar o simulador como app:</p>
+    <p style="color:var(--fg);text-align:left">1. Toque em <b>Compartilhar</b> (o quadrado com a seta pra cima).<br>2. Escolha <b>Adicionar à Tela de Início</b>.<br>3. Abra o simulador pelo ícone novo: ele abre em tela cheia, sem a barra de sites.</p>`
+    :`<p>Este navegador não liberou a tela cheia. No Android, abra o menu do Chrome (⋮) e toque em <b>Adicionar à tela inicial</b>: o simulador abre como app, sem a barra.</p>`}
+    <div class="row"><button class="btn pri" data-close>Entendi</button></div>`)});
+function openModal(html){const m=$("modal");m.innerHTML=`<div role="dialog" aria-modal="true">${html}</div>`;m.hidden=false;m.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",closeModal));const f=m.querySelector("input,button");if(f)f.focus()}
+function closeModal(){$("modal").hidden=true;$("modal").innerHTML=""}
+$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+
+/* ---------------- certificado ---------------- */
+function certForm(){
+  let nm="";try{nm=localStorage.getItem("bm-sim-name")||""}catch(e){}
+  openModal(`<h3>Seu certificado</h3><p>Você completou o Primeiro voo e os 15 movimentos. Digite seu nome como quer que apareça no certificado.</p>
+    <input class="inp" id="certName" type="text" maxlength="40" autocomplete="name" placeholder="Seu nome" value="${nm.replace(/"/g,"&quot;")}">
+    <div class="row"><button class="btn pri" id="certGo">Gerar certificado</button><button class="btn" data-close>Agora não</button></div>`);
+  const go=async()=>{const v=$("certName").value.trim();if(!v){$("certName").focus();return}try{localStorage.setItem("bm-sim-name",v)}catch(e){}$("certGo").disabled=true;$("certGo").textContent="Gerando…";
+    const url=await drawCert(v);openModal(`<h3>Parabéns, ${v.replace(/</g,"&lt;")}!</h3><img src="${url}" alt="Certificado de conclusão do Simulador de Movimentos">
+      <p>Salve a imagem e poste marcando <b style="color:var(--accent)">@brenomadeira</b>. No celular, toque e segure a imagem pra salvar.</p>
+      <div class="row"><a class="btn pri" href="${url}" download="certificado-simulador-drone.png">Baixar imagem</a><button class="btn" data-close>Fechar</button></div>`)};
+  $("certGo").addEventListener("click",go);$("certName").addEventListener("keydown",e=>{if(e.key==="Enter")go()});
+}
+async function drawCert(name){
+  try{await Promise.all(['700 80px "Chakra Petch"','500 30px "Chakra Petch"','400 30px Figtree','600 30px Figtree','700 30px Figtree'].map(f=>document.fonts.load(f)))}catch(e){}
+  const c=document.createElement("canvas");c.width=1080;c.height=1350;const g=c.getContext("2d"),Wc=1080,Hc=1350,A="#ffb21e",M="#8d9ba7";
+  g.fillStyle="#0b0f12";g.fillRect(0,0,Wc,Hc);
+  g.strokeStyle="rgba(255,255,255,.035)";g.lineWidth=1;for(let x=0;x<=Wc;x+=54){g.beginPath();g.moveTo(x,0);g.lineTo(x,Hc);g.stroke()}for(let y=0;y<=Hc;y+=54){g.beginPath();g.moveTo(0,y);g.lineTo(Wc,y);g.stroke()}
+  g.save();g.setLineDash([10,12]);g.strokeStyle="rgba(255,178,30,.22)";g.lineWidth=3;g.beginPath();g.ellipse(840,250,190,90,-.25,0,TAU);g.stroke();g.restore();
+  g.save();g.translate(1012,214);g.rotate(.5);g.strokeStyle="#eef3f6";g.lineWidth=6;g.beginPath();g.moveTo(-26,-26);g.lineTo(26,26);g.moveTo(26,-26);g.lineTo(-26,26);g.stroke();
+  [[-26,-26],[26,-26],[-26,26],[26,26]].forEach(([x,y],i)=>{g.fillStyle=i<2?A:"#56636f";g.beginPath();g.arc(x,y,13,0,TAU);g.fill()});g.fillStyle="#eef3f6";g.fillRect(-11,-15,22,30);g.restore();
+  g.strokeStyle="#26313b";g.lineWidth=2;g.strokeRect(40,40,Wc-80,Hc-80);
+  g.strokeStyle=A;g.lineWidth=6;[[40,40,1,1],[Wc-40,40,-1,1],[40,Hc-40,1,-1],[Wc-40,Hc-40,-1,-1]].forEach(([x,y,a,b])=>{g.beginPath();g.moveTo(x,y+60*b);g.lineTo(x,y);g.lineTo(x+60*a,y);g.stroke()});
+  const L=96;g.textBaseline="alphabetic";
+  g.fillStyle=A;g.font='500 26px "Chakra Petch", sans-serif';g.letterSpacing="6px";g.fillText("SIMULADOR DE MOVIMENTOS · DRONE",L,140);g.letterSpacing="0px";
+  g.fillStyle="#eef3f6";g.font='700 76px "Chakra Petch", sans-serif';g.fillText("CERTIFICADO",L,250);g.fillText("DE CONCLUSÃO",L,330);
+  g.fillStyle=M;g.font='400 32px Figtree, sans-serif';g.fillText("Certificamos que",L,430);
+  let fs=92;g.font=`700 ${fs}px "Chakra Petch", sans-serif`;while(g.measureText(name).width>Wc-2*L&&fs>40){fs-=4;g.font=`700 ${fs}px "Chakra Petch", sans-serif`}
+  g.fillStyle=A;g.fillText(name,L,530);g.fillRect(L,556,Wc-2*L,4);
+  const avg=Math.round(CORE.reduce((a,k)=>a+(best[k]||0),0)/CORE.length);
+  g.fillStyle="#eef3f6";g.font='400 32px Figtree, sans-serif';
+  const words=`concluiu o Primeiro voo e os 15 movimentos de câmera com drone, do básico ao avançado, com precisão média de ${avg}%.`.split(" ");let line="",y=624;
+  for(const w of words){const t=line?line+" "+w:w;if(g.measureText(t).width>Wc-2*L){g.fillText(line,L,y);line=w;y+=46}else line=t}g.fillText(line,L,y);
+  const items=CORE,colW=(Wc-2*L-40)/2,top=y+70;g.font='600 25px Figtree, sans-serif';
+  items.forEach((k,i)=>{const col=i<8?0:1,row=i%8,x=L+col*(colW+40),yy=top+row*44,sc=best[k]||0,stars=sc>=85?3:sc>=65?2:1;
+    g.fillStyle="#eef3f6";g.fillText(MIS[k].n,x,yy);
+    for(let j=0;j<3;j++){g.fillStyle=j<stars?A:"#26313b";const sx=x+colW-80+j*28,sy=yy-9;g.beginPath();for(let q=0;q<10;q++){const r=q%2?5:11,a=-Math.PI/2+q*Math.PI/5;g.lineTo(sx+Math.cos(a)*r,sy+Math.sin(a)*r)}g.closePath();g.fill()}});
+  const by=Hc-130;g.fillStyle="#26313b";g.fillRect(L,by-70,Wc-2*L,2);
+  g.fillStyle="#eef3f6";g.font='700 40px "Chakra Petch", sans-serif';g.fillText("Breno Madeira",L,by);
+  g.fillStyle=M;g.font='400 24px Figtree, sans-serif';g.fillText("Instrutor · @brenomadeira",L,by+38);
+  const dt=new Date(),ds=`${String(dt.getDate()).padStart(2,"0")}/${String(dt.getMonth()+1).padStart(2,"0")}/${dt.getFullYear()}`;
+  g.textAlign="right";g.fillStyle="#eef3f6";g.font='700 32px "Chakra Petch", sans-serif';g.fillText(ds,Wc-L,by);
+  g.fillStyle=M;g.font='400 24px Figtree, sans-serif';g.fillText("Domine Seu Drone DJI",Wc-L,by+38);g.textAlign="left";
+  return c.toDataURL("image/png");
 }
 $("btnDemo").addEventListener("click",()=>start(cur,true));
 $("btnReset").addEventListener("click",()=>start(cur,false));
@@ -816,6 +1035,6 @@ function loop(now){
   }
   requestAnimationFrame(loop);
 }
-resize();start("aprox",false);requestAnimationFrame(loop);
+resize();start(firstOpen(),false);requestAnimationFrame(loop);
 </script>
 </body></html>
