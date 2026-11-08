@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}[hidden]{display:none!important}</style>
+<title>Simulador de Movimentos BM</title>
+</head><body>
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: drone camera feed on top, mission brief, then two Mode 2 sticks like a real controller (sticks flank the feed in landscape) */
+:root{
+  --bg:#0b0f12; --panel:#141a20; --line:#26313b; --fg:#eef3f6; --muted:#8d9ba7;
+  --accent:#ffb21e; --ok:#3ddc84; --bad:#ff5a4f;
+  --display:"Chakra Petch", "Arial Narrow", sans-serif;
+  --body:"Figtree", system-ui, sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.45;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+.app{max-width:980px;margin:0 auto;min-height:100%;box-sizing:border-box;display:grid;gap:10px;
+  padding-block:10px 16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:"top top top" "stage stage stage" "info info info" "padL gim padR";align-content:start}
+.top{grid-area:top;display:grid;gap:8px;min-width:0}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand b{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em}
+.brand span{font-family:var(--display);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;font:inherit;font-weight:600;font-size:13px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.chip small{font-family:var(--display);font-size:11px;color:var(--ok)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1a1205}
+.chip[aria-pressed="true"] small{color:#1a1205}
+.stage{grid-area:stage;position:relative;aspect-ratio:16/9;width:100%;border-radius:14px;overflow:hidden;background:#000;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+.live{position:absolute;left:10px;top:30px;right:40%;font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none}
+.live span{background:rgba(0,0,0,.55);border-radius:6px;padding:2px 7px}
+.live .demo{background:var(--accent);color:#1a1205;font-family:var(--display);letter-spacing:.08em}
+.hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 20px);background:rgba(0,0,0,.62);border-radius:999px;padding:5px 14px;font-size:13px;font-weight:600;text-align:center;pointer-events:none;transition:color .2s}
+.hint.good{color:var(--ok)}.hint.warn{color:var(--accent)}
+.card{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,8,10,.62);padding:12px}
+.card>div{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-width:340px;width:100%;display:grid;gap:8px;text-align:center}
+.card h3{margin:0;font-family:var(--display);font-size:22px;letter-spacing:.02em}
+.stars{font-size:26px;letter-spacing:4px;color:var(--accent)}
+.card p{margin:0;color:var(--muted)}
+.card .score{color:var(--fg);font-family:var(--display);font-size:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.btn{font:inherit;font-weight:700;font-size:14px;border-radius:10px;padding:9px 14px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#1a1205}
+.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.info{grid-area:info;display:grid;gap:6px;min-width:0}
+.info h2{margin:0;font-family:var(--display);font-size:18px;letter-spacing:.02em}
+.desc{margin:0;color:var(--muted)}
+.cmd{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-weight:600}
+.edit{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;-webkit-user-select:text;user-select:text}
+.edit h3{margin:0 0 6px;font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.edit ol{margin:0;padding-left:20px;display:grid;gap:5px}
+.edit li::marker{color:var(--muted);font-family:var(--display)}
+.ed{grid-area:info;display:grid;gap:10px;min-width:0}
+.app.editing .info,.app.editing .pad,.app.editing .gim,.app.editing .foot{display:none!important}
+.edhead{display:grid;gap:4px}
+.edstep{font-family:var(--display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.edcap{margin:0;font-size:17px;font-weight:600;line-height:1.4;min-height:4.2em;-webkit-user-select:text;user-select:text}
+.edui{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;background:#0f1418;border:1px solid var(--line);border-radius:12px;padding:12px}
+.insp{display:grid;gap:6px;align-content:start}
+.insph,.tlh{font-family:var(--display);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.prow{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:7px 9px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px}
+.prow output{font-family:var(--display);font-variant-numeric:tabular-nums;font-size:14px}
+.clock{color:var(--muted);text-align:center;font-size:13px}
+.clock.on{color:var(--accent)}
+.hl{outline:2px solid var(--accent);outline-offset:2px;animation:hlp .8s ease-in-out infinite alternate}
+@keyframes hlp{to{outline-color:rgba(255,178,30,.2)}}
+.tlwrap{display:grid;gap:6px;min-width:0}
+.tl{position:relative;padding-left:58px;display:grid;gap:7px}
+.ruler{position:relative;height:14px;font-size:10px;color:var(--muted);font-family:var(--display)}
+.ruler span{position:absolute;transform:translateX(-50%)}
+.lane{position:relative;height:30px}
+.lab{position:absolute;left:-58px;width:52px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted)}
+.clip{position:absolute;inset:0;border-radius:6px;background:repeating-linear-gradient(90deg,#3d6f8f 0 46px,#4a7fa0 46px 48px);overflow:hidden}
+.cut{position:absolute;top:0;bottom:0;left:0;width:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.7) 0 6px,rgba(0,0,0,.5) 6px 12px);border-right:3px solid var(--accent);box-sizing:border-box}
+.cut.r{left:auto;right:0;border-right:0;border-left:3px solid var(--accent)}
+.kfl{position:absolute;inset:0;border-radius:6px;background:var(--panel);border:1px solid var(--line)}
+.kd{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;background:var(--accent);transform:rotate(45deg);display:none;z-index:1}
+.kline{position:absolute;top:50%;height:2px;margin-top:-1px;background:rgba(255,178,30,.65);display:none}
+.ph{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#ff5a4f;left:calc(58px + (100% - 58px) * var(--p,0));pointer-events:none;z-index:2}
+.ph::before{content:"";position:absolute;top:-2px;left:-5px;border:6px solid transparent;border-top-color:#ff5a4f}
+.kmenu{position:absolute;top:calc(100% - 4px);left:calc(58px + (100% - 58px) * var(--m,1));transform:translateX(-100%);background:#232c35;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,.55);z-index:3;min-width:150px}
+.mi{padding:5px 10px;border-radius:5px}.mi.dim{color:var(--muted)}.mi.on{background:var(--accent);color:#1a1205;font-weight:700}
+@media (max-width:640px){.edui{grid-template-columns:1fr}.edcap{font-size:16px}}
+.cmd::before{content:"No controle: ";color:var(--accent);font-family:var(--display);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.pad{position:relative;width:min(36vw,190px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#1b232b 0 55%,#141a20 56%);border:1px solid var(--line);touch-action:none;justify-self:center;cursor:grab}
+#padL{grid-area:padL}#padR{grid-area:padR}
+.pad::before,.pad::after{content:"";position:absolute;background:var(--line)}
+.pad::before{left:50%;top:12%;bottom:12%;width:1px}
+.pad::after{top:50%;left:12%;right:12%;height:1px}
+.knob{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;margin:-17% 0 0 -17%;border-radius:50%;background:#3a4652;border:2px solid #56636f;box-shadow:0 4px 10px rgba(0,0,0,.5);z-index:1;pointer-events:none}
+.pad.on .knob,.pad.auto .knob{background:var(--accent);border-color:#ffd47a}
+.lab{position:absolute;font-family:var(--display);font-size:10px;letter-spacing:.06em;color:var(--muted);pointer-events:none;text-transform:uppercase;white-space:nowrap}
+.lab.t{top:3%;left:50%;transform:translateX(-50%)}.lab.b{bottom:3%;left:50%;transform:translateX(-50%)}
+.lab.l{left:4%;top:50%;transform:translateY(-50%)}.lab.r{right:4%;top:50%;transform:translateY(-50%)}
+.padname{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);font-size:11px;color:var(--muted);white-space:nowrap}
+.gim{grid-area:gim;display:grid;justify-items:center;gap:4px;align-content:center}
+.gim label{font-family:var(--display);font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+#gim{writing-mode:vertical-lr;height:min(30vw,140px);width:28px;accent-color:var(--accent)}
+.gim output{font-family:var(--display);font-size:12px;font-variant-numeric:tabular-nums}
+.foot{grid-column:1/-1;margin:14px 0 0;font-size:12px;color:var(--muted);text-align:center}
+@media (orientation:landscape) and (max-height:560px){
+  .app{max-width:none;height:100%;gap:8px;padding-block:6px 6px;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"top top top" "padL stage padR" "info stage gim"}
+  .brand{display:none}
+  .stage{aspect-ratio:auto;height:100%}
+  .pad{width:min(24vw,46vh);align-self:center}
+  .padname{display:none}
+  .desc,.cmd,.foot,.edit{display:none!important}
+  .info h2{font-size:14px}
+  #gim{height:18vh}
+  .gim{grid-auto-flow:column;align-items:center}
+}
+@media (prefers-reduced-motion:reduce){.hint{transition:none}}
+</style>
+
+<div class="app">
+  <div class="top">
+    <div class="brand"><b>Simulador de Movimentos</b><span>BM Outdoor Films · Modo 2</span></div>
+    <nav class="chips" id="chips" aria-label="Movimentos"></nav>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Visão da câmera do drone"></canvas>
+    <div class="live" id="live"></div>
+    <div class="hint" id="hint"></div>
+    <div class="card" id="card" hidden></div>
+  </div>
+
+  <section class="info">
+    <h2 id="mName"></h2>
+    <p class="desc" id="mDesc"></p>
+    <p class="cmd" id="mCmd"></p>
+    <div class="edit" id="mEdit" hidden></div>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn pri" id="btnDemo">Ver demonstração</button>
+      <button class="btn" id="btnReset">Reiniciar</button>
+      <button class="btn" id="btnEd" hidden>Ver como fazer na edição</button>
+    </div>
+  </section>
+
+  <section class="ed" id="ed" hidden aria-live="polite">
+    <div class="edhead"><span class="edstep" id="edStep"></span><p class="edcap" id="edCap"></p></div>
+    <div class="edui">
+      <div class="insp">
+        <div class="insph">Controles de efeito</div>
+        <div class="prow" id="rowScale"><span class="clock" id="clk">⏱</span><span>Escala</span><output id="scv">100%</output></div>
+        <div class="prow" id="rowAnchor"><span class="clock">⌖</span><span>Ponto de ancoragem</span><output>centro</output></div>
+        <div class="prow"><span class="clock">▶</span><span>Tempo</span><output id="tcv">00:00:00</output></div>
+      </div>
+      <div class="tlwrap">
+        <div class="tlh">Timeline</div>
+        <div class="tl" id="tl">
+          <div class="ruler" id="ruler"></div>
+          <div class="lane"><span class="lab">Vídeo</span><div class="clip" id="clip"><i class="cut" id="cutL"></i><i class="cut r" id="cutR"></i></div></div>
+          <div class="lane"><span class="lab">Escala</span><div class="kfl"><i class="kline" id="kline"></i><i class="kd" id="kd1"></i><i class="kd" id="kd2"></i></div></div>
+          <div class="ph" id="ph"></div>
+          <div class="kmenu" id="kmenu" hidden><div class="mi dim">Bezier</div><div class="mi dim">Ease in / Ease out</div><div class="mi on">✓ Linear</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn" id="edPrev">◀ Anterior</button><button class="btn" id="edPlay">Pausar</button><button class="btn pri" id="edNext">Próximo ▶</button><button class="btn" id="edExit">Voltar pro simulador</button>
+    </div>
+  </section>
+
+  <div class="pad" id="padL" aria-label="Stick esquerdo"><span class="lab t">Subir</span><span class="lab b">Descer</span><span class="lab l">Gira ⟲</span><span class="lab r">⟳</span><div class="knob"></div><span class="padname">Esquerdo · altura e giro</span></div>
+  <div class="gim"><label for="gim">Gimbal</label><input type="range" id="gim" min="0" max="90" value="10"><output id="gimOut">-10°</output></div>
+  <div class="pad" id="padR" aria-label="Stick direito"><span class="lab t">Frente</span><span class="lab b">Ré</span><span class="lab l">◀</span><span class="lab r">▶</span><div class="knob"></div><span class="padname">Direito · frente, ré e lados</span></div>
+
+  <p class="foot">Gimbal vai de 0° (horizonte) a 90° (olhando pra baixo). No computador: W/S sobe e desce, A/D gira, setas movem. Shift dá potência total.</p>
+</div>
+
+<script>
+const D2R=Math.PI/180, TAU=Math.PI*2;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ss=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+const wrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a};
+const EXPO=1.6;
+const curve=s=>Math.sign(s)*Math.pow(Math.abs(s),EXPO);
+const inv=f=>Math.sign(f)*Math.pow(Math.min(1,Math.abs(f)),1/EXPO);
+const PHYS={vmax:10,vz:4,yawMax:60*D2R,tau:.35};
+const AIM_Z=10; // altura do ponto de mira na torre
+
+/* ---------------- missões ---------------- */
+const MIS={
+  orbital:{n:"Orbital",d:"Dê uma volta completa em torno da torre mantendo ela no centro da tela, na mesma distância e altura.",
+    cmd:"stick direito pro lado (roll) e stick esquerdo pro lado oposto (yaw), ao mesmo tempo. Direito pra esquerda + esquerdo pra direita = volta no sentido horário.",
+    st:[0,-25,10,0,14],tip:"O segredo é a proporção: quanto mais roll, mais yaw. Ajuste só o stick esquerdo pra manter a torre na mira."},
+  aprox:{n:"Aproximar",d:"Push-in: voe reto em direção à torre, sem subir, descer ou desviar. Cria imersão e revela detalhes, ótimo pra abrir um vídeo.",
+    cmd:"só o stick direito pra frente (pitch), com pressão constante. O esquerdo fica parado no centro.",
+    st:[0,-70,12,0,8],tip:"Pressão constante no stick direito e nada no esquerdo. Qualquer toque lateral tira o drone da linha."},
+  afast:{n:"Dronie",d:"Afaste-se da torre de ré e suba ao mesmo tempo, abrindo a paisagem. Mantenha a torre centralizada.",
+    cmd:"stick direito pra trás (pitch) e stick esquerdo pra cima (throttle) juntos. Incline o gimbal pra baixo conforme sobe.",
+    st:[0,-18,6,0,12],tip:"Comece os dois sticks juntos e vá descendo o gimbal aos poucos pra torre não sumir por baixo."},
+  revel:{n:"Revelar",d:"Comece escondido atrás do muro e suba devagar até a torre aparecer por cima dele. A surpresa é o efeito.",
+    cmd:"só o stick esquerdo pra cima (throttle), devagar. No final, incline um pouco o gimbal pra baixo.",
+    st:[0,-40,3,0,0],wall:true,tip:"Suba devagar e reto. Revelação rápida perde o impacto."},
+  topdown:{n:"Olho de Águia",d:"Top-down: câmera a 90°, olhando reto pra baixo, em cima da torre. Suba devagar até 70 m e veja o desenho geométrico se abrir.",
+    cmd:"rodinha do gimbal toda pra baixo (90°) e stick esquerdo pra cima, devagar. Um toque leve do esquerdo pro lado faz a imagem girar.",
+    st:[0,0,30,0,40],tip:"Confira os 90° antes de subir: com 80° a borda do horizonte aparece e o efeito de mapa some. Suba devagar e reto."},
+  seguir:{n:"Seguir",d:"Tracking: acompanhe o carro vermelho pela estrada, por trás e de cima, sem deixar ele fugir do quadro nem chegar perto demais.",
+    cmd:"stick direito pra frente com a mesma velocidade do carro. Corrija a mira com o esquerdo (yaw) e a distância com o direito.",
+    st:[-106,58,9,Math.PI/2,14],car:true,tip:"Combine a velocidade antes de pensar no enquadramento. Mantenha uns 15 a 25 m de distância e não mexa no stick com tranco."},
+  parallax:{n:"Parallax",d:"Dolly zoom feito na edição. Recue em linha reta, com velocidade constante e a torre no centro, sem zoom na câmera. No final você vê o take com o zoom da edição: a torre fica do mesmo tamanho e o fundo cresce atrás dela.",
+    cmd:"só o stick direito pra trás, com a mesma pressão do começo ao fim. Esquerdo no centro e nada de zoom na câmera.",
+    st:[0,-26,10,0,0],dolly:true,tip:"Na edição é um keyframe linear de escala, do início ao fim do take. Ele só casa se a velocidade do drone for constante: corte o começo e o fim, onde o drone acelera e freia. Avançar também funciona, aí você começa com o zoom aplicado e volta pra 100%. Grave em 4K pra aguentar o corte.",
+    edit:["Corte o começo e o fim do take, onde o drone acelera e freia. Fica só o trecho com velocidade constante.",
+      "Se a torre não estiver no centro do quadro, mova o ponto de ancoragem (Anchor Point) pro centro dela antes de mexer na escala.",
+      "No primeiro quadro, crie um keyframe de Escala (Scale/Zoom) em 100%.",
+      "Vá pro último quadro e aumente a Escala até a torre ficar do mesmo tamanho do primeiro quadro. Esse é o segundo keyframe. Dica: no primeiro quadro, marque o topo e a base da torre com guias.",
+      "Deixe a interpolação linear, sem ease in/out. Premiere: botão direito no keyframe › Interpolação temporal › Linear. DaVinci: botão direito no keyframe › Linear.",
+      "Assista: se a torre ainda respirar, ajuste só o valor do keyframe final. Se pulsar no meio, a velocidade do drone não foi constante e não tem keyframe que salve.",
+      "Gravou em 4K numa timeline 1080p? Até 200% de escala não perde qualidade.",
+      "Avançando em vez de recuar: inverta. O primeiro keyframe começa no zoom alto e o último termina em 100%."]},
+  pedestal:{n:"Pedestal",d:"Subida vertical pura: o drone sobe de 2 m até 30 m sem sair do lugar e sem girar, abrindo o cenário atrás da torre.",
+    cmd:"só o stick esquerdo pra cima, reto, sem desviar pro lado. O direito fica no centro.",
+    st:[0,-35,2,0,0],tip:"Polegar reto: qualquer desvio pro lado vira giro. Pra dar mais profundidade, some um pouco de ré no stick direito (aí vira um Dronie)."},
+  pan:{n:"Pan",d:"Panorâmica: o drone fica parado e gira no próprio eixo, da esquerda pra direita, passando pela torre. Meia volta, devagar e constante.",
+    cmd:"só o stick esquerdo pra direita (yaw), devagar e sempre com a mesma pressão. O direito fica no centro.",
+    st:[0,-30,8,-Math.PI/2,5],tip:"Pan rápido picota a imagem. Use o modo Cine, diminua a velocidade de giro no app e comece e termine parado."},
+  travel:{n:"Travelling",d:"Truck: deslize de lado em linha reta, sem girar. A torre entra por um lado do quadro e sai pelo outro.",
+    cmd:"só o stick direito pra direita (roll), pressão constante. O esquerdo fica no centro.",
+    st:[-30,-20,6,0,3],tip:"Aqui a câmera não acompanha a torre: ela cruza o quadro. Um primeiro plano (árvore, pedra) entre o drone e o assunto deixa o movimento ainda mais rico."},
+  flyover:{n:"Sobrevoo",d:"Fly-over: passe por cima da torre a 30 m de altura, descendo o gimbal pra manter ela no centro até ficar a 90° em cima dela, e siga em frente.",
+    cmd:"stick direito pra frente e rodinha do gimbal descendo cada vez mais rápido conforme você chega na torre.",
+    st:[0,-45,30,0,15],tip:"O gimbal muda devagar quando você está longe e muito rápido quando está quase em cima. Ensaie a rodinha. Nunca sobrevoe pessoas que não fazem parte da gravação."},
+  flythrough:{n:"Fly-through",d:"Passe pelo meio do portal de madeira voando reto e baixo, e siga em direção à torre. Exige mira e calma.",
+    cmd:"stick direito pra frente, firme. Corrija só com toques leves pro lado. O esquerdo segura a altura.",
+    st:[0,-70,6,0,4],gate:true,tip:"Mire no centro do vão bem antes de chegar. No drone de verdade os sensores podem frear perto do portal: teste antes, devagar, em modo Cine."},
+  espiral:{n:"Espiral",d:"Orbital subindo: dê uma volta completa na torre enquanto sobe de 6 m pra uns 28 m, sempre com ela no centro.",
+    cmd:"stick direito pra esquerda (roll) e stick esquerdo na diagonal: pra direita (yaw) e um pouco pra cima (subir). Desça o gimbal conforme sobe.",
+    st:[0,-25,6,0,0],tip:"É o orbital com a subida no mesmo polegar. Primeiro acerte o orbital, depois some a subida bem leve."},
+  lateral:{n:"Seguir de lado",d:"Tracking lateral: voe lado a lado com o carro vermelho, olhando pra ele, como um carro de filmagem na pista ao lado.",
+    cmd:"stick direito pra direita (roll) na velocidade do carro. Correções de mira no stick esquerdo (yaw).",
+    st:[-88,40,6,0,8],car:true,tip:"Antes do carro sair, deixe o drone na altura e distância certas. Depois, é só casar a velocidade com o stick direito."},
+  tilt:{n:"Tilt In / Out",d:"Tilt up: comece com a câmera olhando pro chão e avance subindo a câmera aos poucos até revelar o horizonte e a torre.",
+    cmd:"stick direito pra frente e rodinha do gimbal subindo (de 70° até uns 15°), juntos e no mesmo ritmo.",
+    st:[0,-80,18,0,70],tip:"Avanço e gimbal precisam terminar juntos. O inverso (recuar baixando a câmera até esconder o horizonte) é o tilt out, ótimo pra fechar vídeo."},
+  livre:{n:"Voo livre",d:"Treine os sticks à vontade. A torre é o seu ponto de referência.",
+    cmd:"esquerdo sobe, desce e gira. Direito vai pra frente, ré e lados.",st:[0,-30,10,0,10],free:true}
+};
+const ORDER=["aprox","afast","pedestal","pan","travel","revel","topdown","tilt","orbital","seguir","lateral","flyover","flythrough","espiral","parallax","livre"];
+
+/* ---------------- cenário ---------------- */
+let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};
+const TREES=[];
+while(TREES.length<60){
+  const x=(rnd()*2-1)*150,y=(rnd()*2-1)*150;
+  if(Math.hypot(x,y)<40)continue;
+  if(Math.abs(x)<9&&y<-10&&y>-100)continue;
+  if(Math.abs(x)<36&&y>-24&&y<-6)continue;
+  if(y>32&&y<66)continue;
+  TREES.push({x,y,h:7+rnd()*7,r:2.3+rnd()*1.8,k:rnd()});
+}
+const TOWER=[
+  {x0:-3,x1:3,y0:-3,y1:3,z0:0,z1:15,c:"#e8e2d4"},
+  {x0:-3.3,x1:3.3,y0:-3.3,y1:3.3,z0:15,z1:18,c:"#d9480f"},
+  {x0:-1.6,x1:1.6,y0:-1.6,y1:1.6,z0:18,z1:21,c:"#2a3540"}
+];
+const ROADY=58,CAR_V=7,CAR={x:-88};
+function carBoxes(){const x=CAR.x;return[
+  {x0:x-2.2,x1:x+2.2,y0:ROADY-1,y1:ROADY+1,z0:.3,z1:1.35,c:"#d23a2c"},
+  {x0:x-1.1,x1:x+1.1,y0:ROADY-.9,y1:ROADY+.9,z0:1.35,z1:2.05,c:"#2a3540"}]}
+const GATE=[{x0:-4.2,x1:-2.8,y0:-31,y1:-29,z0:0,z1:13.5,c:"#b8743a"},{x0:2.8,x1:4.2,y0:-31,y1:-29,z0:0,z1:13.5,c:"#b8743a"},{x0:-4.2,x1:4.2,y0:-31,y1:-29,z0:12,z1:13.5,c:"#9c5f2c"}];
+const WALL={x0:-32,x1:32,y0:-16,y1:-14,z0:0,z1:16,c:"#8a8f86"};
+
+/* ---------------- estado ---------------- */
+const S={x:0,y:0,z:10,h:0,vx:0,vy:0,vz:0,yr:0,g:10};
+const U={lx:0,ly:0,rx:0,ry:0};       // toque
+const KB={};                            // teclado
+let cur="orbital",demo=false,paused=false,run=null,trail=[],replay=null,ZK=1,lastCard="",ED=null;
+let best={};try{best=JSON.parse(localStorage.getItem("bm-sim-best")||"{}")||{}}catch(e){}
+
+const $=id=>document.getElementById(id);
+const cv=$("cv"),ctx=cv.getContext("2d");
+let W=0,H=0,F=1,sh=0,ch=1,st=0,ct=1;
+
+function resize(){
+  const r=$("stage").getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);
+  W=Math.max(1,r.width);H=Math.max(1,r.height);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);F=(W/2)/Math.tan(41*D2R);
+}
+new ResizeObserver(resize).observe($("stage"));
+
+/* ---------------- projeção ---------------- */
+function cam(px,py,pz){
+  const dx=px-S.x,dy=py-S.y,dz=pz-S.z;
+  const xc=dx*ch-dy*sh,yf=dx*sh+dy*ch;
+  return[xc,yf*ct-dz*st,yf*st+dz*ct];
+}
+const scr=c=>[W/2+c[0]/c[1]*F,H/2-c[2]/c[1]*F];
+function clipPoly(cs){const N=.3,o=[];for(let i=0;i<cs.length;i++){const a=cs[i],b=cs[(i+1)%cs.length],ai=a[1]>=N,bi=b[1]>=N;if(ai)o.push(a);if(ai!==bi){const k=(N-a[1])/(b[1]-a[1]);o.push([a[0]+(b[0]-a[0])*k,N,a[2]+(b[2]-a[2])*k])}}return o}
+function shade(hex,f){const n=parseInt(hex.slice(1),16);const r=(n>>16)&255,g=(n>>8)&255,b=n&255;return`rgb(${r*f|0},${g*f|0},${b*f|0})`}
+
+function boxFaces(b,list){
+  const P=(x,y,z)=>cam(x,y,z);
+  const fs=[];
+  if(S.y<b.y0)fs.push([[b.x0,b.y0,b.z0],[b.x1,b.y0,b.z0],[b.x1,b.y0,b.z1],[b.x0,b.y0,b.z1],.84]);
+  if(S.y>b.y1)fs.push([[b.x0,b.y1,b.z0],[b.x1,b.y1,b.z0],[b.x1,b.y1,b.z1],[b.x0,b.y1,b.z1],.55]);
+  if(S.x<b.x0)fs.push([[b.x0,b.y0,b.z0],[b.x0,b.y1,b.z0],[b.x0,b.y1,b.z1],[b.x0,b.y0,b.z1],.64]);
+  if(S.x>b.x1)fs.push([[b.x1,b.y0,b.z0],[b.x1,b.y1,b.z0],[b.x1,b.y1,b.z1],[b.x1,b.y0,b.z1],.74]);
+  if(S.z>b.z1)fs.push([[b.x0,b.y0,b.z1],[b.x1,b.y0,b.z1],[b.x1,b.y1,b.z1],[b.x0,b.y1,b.z1],1]);
+  fs.forEach(f=>{
+    const cs=clipPoly(f.slice(0,4).map(p=>P(...p)));if(cs.length<3)return;
+    const dep=cs.reduce((s,c)=>s+c[1],0)/cs.length;
+    const col=shade(b.c,f[4]);
+    list.push({dep,draw(){ctx.beginPath();cs.forEach((c,i)=>{const s=scr(c);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});ctx.closePath();ctx.fillStyle=col;ctx.fill();ctx.strokeStyle="rgba(0,0,0,.18)";ctx.lineWidth=1;ctx.stroke()}});
+  });
+}
+
+function render(){
+  sh=Math.sin(S.h);ch=Math.cos(S.h);st=Math.sin(S.g*D2R);ct=Math.cos(S.g*D2R);
+  const hy=H/2-Math.tan(S.g*D2R)*F;
+  // céu e chão
+  let gr=ctx.createLinearGradient(0,Math.min(hy,H)-H,0,Math.max(0,hy));
+  gr.addColorStop(0,"#3f78b8");gr.addColorStop(1,"#bfd9ec");
+  ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+  const gy=clamp(hy,-1,H+1);
+  gr=ctx.createLinearGradient(0,gy,0,H);gr.addColorStop(0,"#8fae7a");gr.addColorStop(1,"#4f7a3c");
+  ctx.fillStyle=gr;ctx.fillRect(0,gy,W,H-gy);
+  // montanhas no horizonte
+  if(hy>-40&&hy<H+40){
+    ctx.fillStyle="rgba(70,100,120,.55)";ctx.beginPath();ctx.moveTo(0,hy);
+    for(let i=0;i<=24;i++){const a=S.h+(i/24-.5)*1.6/ZK;const sx=i/24*W;const m=Math.sin(a*3.1)*.5+Math.sin(a*7.3+1)*.3+Math.sin(a*1.7+2)*.6;ctx.lineTo(sx,hy-(14+m*14)*ZK)}
+    ctx.lineTo(W,hy);ctx.fill();
+  }
+  // grade do chão
+  ctx.strokeStyle="rgba(255,255,255,.13)";ctx.lineWidth=1;ctx.beginPath();
+  for(let v=-150;v<=150;v+=10){seg([v,-150,0],[v,150,0]);seg([-150,v,0],[150,v,0])}
+  ctx.stroke();
+  // estrada
+  {const rd=clipPoly([cam(-150,ROADY-4,.02),cam(150,ROADY-4,.02),cam(150,ROADY+4,.02),cam(-150,ROADY+4,.02)]);
+   if(rd.length>2){ctx.beginPath();rd.forEach((c,i)=>{const s=scr(c);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});ctx.closePath();ctx.fillStyle="#5e625f";ctx.fill()}
+   ctx.strokeStyle="rgba(255,240,200,.55)";ctx.lineWidth=1.5;ctx.beginPath();for(let x=-150;x<150;x+=8)seg([x,ROADY,.03],[x+4,ROADY,.03]);ctx.stroke();}
+  // base da torre
+  const ring=[];for(let i=0;i<24;i++){const a=i/24*TAU;ring.push(cam(Math.cos(a)*8,Math.sin(a)*8,0))}
+  const rc=clipPoly(ring);if(rc.length>2){ctx.beginPath();rc.forEach((c,i)=>{const s=scr(c);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});ctx.closePath();ctx.fillStyle="rgba(222,214,196,.75)";ctx.fill()}
+  // objetos ordenados por profundidade
+  const list=[];
+  TOWER.forEach(b=>boxFaces(b,list));
+  if(MIS[cur].wall)boxFaces(WALL,list);
+  if(MIS[cur].car)carBoxes().forEach(b=>boxFaces(b,list));
+  if(MIS[cur].gate)GATE.forEach(b=>boxFaces(b,list));
+  TREES.forEach(t=>{
+    const b=cam(t.x,t.y,0);if(b[1]<1.2)return;
+    const top=cam(t.x,t.y,t.h),mid=cam(t.x,t.y,t.h*.62);
+    list.push({dep:b[1],draw(){
+      const sb=scr(b),sm=scr(mid),s=F/b[1];
+      ctx.fillStyle="#5b4330";ctx.fillRect(sb[0]-.35*s,sm[1],.7*s,sb[1]-sm[1]);
+      ctx.fillStyle=t.k>.5?"#2f6b3a":"#3c7d44";ctx.beginPath();ctx.ellipse(sm[0],sm[1],t.r*s,t.r*1.25*s,0,0,TAU);ctx.fill();
+      ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.ellipse(sm[0]-t.r*.3*s,sm[1]-t.r*.4*s,t.r*.5*s,t.r*.6*s,0,0,TAU);ctx.fill();
+    }});
+  });
+  list.sort((a,b)=>b.dep-a.dep).forEach(o=>o.draw());
+  if(!ED)osd();
+}
+function seg(a,b){
+  let A=cam(...a),B=cam(...b);const N=.5;
+  if(A[1]<N&&B[1]<N)return;
+  if(A[1]<N){const k=(N-A[1])/(B[1]-A[1]);A=[A[0]+(B[0]-A[0])*k,N,A[2]+(B[2]-A[2])*k]}
+  if(B[1]<N){const k=(N-B[1])/(A[1]-B[1]);B=[B[0]+(A[0]-B[0])*k,N,B[2]+(A[2]-B[2])*k]}
+  const p=scr(A),q=scr(B);ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);
+}
+
+function osd(){
+  // mira central
+  ctx.strokeStyle="rgba(255,255,255,.75)";ctx.lineWidth=1.5;ctx.beginPath();
+  const cx=W/2,cy=H/2;ctx.moveTo(cx-14,cy);ctx.lineTo(cx-5,cy);ctx.moveTo(cx+5,cy);ctx.lineTo(cx+14,cy);ctx.moveTo(cx,cy-14);ctx.lineTo(cx,cy-5);ctx.moveTo(cx,cy+5);ctx.lineTo(cx,cy+14);ctx.stroke();
+  // barra de progresso
+  if(run&&!MIS[cur].free){ctx.fillStyle="rgba(0,0,0,.45)";ctx.fillRect(0,0,W,5);ctx.fillStyle=run.okNow?"#3ddc84":"#ffb21e";ctx.fillRect(0,0,W*clamp(run.prog,0,1),5)}
+  // telemetria
+  const d=Math.hypot(S.x,S.y),v=Math.hypot(S.vx,S.vy);
+  ctx.font=`600 ${W<420?11:12}px "Chakra Petch", monospace`;ctx.textBaseline="top";
+  const blink=(performance.now()/600|0)%2;
+  ctx.fillStyle=blink?"#ff5a4f":"rgba(255,90,79,.35)";ctx.beginPath();ctx.arc(14,15,4,0,TAU);ctx.fill();
+  const txt=`ALT ${S.z.toFixed(1)}m  DIST ${d.toFixed(1)}m  ${v.toFixed(1)}m/s`;
+  ctx.fillStyle="rgba(0,0,0,.45)";const tw=ctx.measureText(txt).width;ctx.fillRect(22,8,tw+10,16);
+  ctx.fillStyle="#fff";ctx.fillText(txt,27,10);
+  // minimapa
+  const m=Math.round(clamp(W*.2,70,112)),mx=W-m-8,my=10,sc=m/170,ox=mx+m/2,oy=my+m/2;
+  ctx.fillStyle="rgba(10,16,20,.6)";ctx.fillRect(mx,my,m,m);ctx.strokeStyle="rgba(255,255,255,.25)";ctx.strokeRect(mx+.5,my+.5,m-1,m-1);
+  ctx.save();ctx.beginPath();ctx.rect(mx,my,m,m);ctx.clip();
+  const P=(x,y)=>[ox+x*sc,oy-y*sc];
+  if(MIS[cur].gate){ctx.fillStyle="#b8743a";const a=P(-4.2,-29);ctx.fillRect(a[0],a[1],8.4*sc+1,Math.max(2,2*sc))}
+  if(cur==="orbital"||cur==="espiral"){ctx.setLineDash([3,3]);ctx.strokeStyle="rgba(255,178,30,.7)";ctx.beginPath();ctx.arc(ox,oy,25*sc,0,TAU);ctx.stroke();ctx.setLineDash([])}
+  {const a=P(-150,ROADY+4),b=P(150,ROADY-4);ctx.fillStyle="rgba(150,150,145,.5)";ctx.fillRect(a[0],a[1],b[0]-a[0],b[1]-a[1])}
+  if(MIS[cur].car){const c=P(CAR.x,ROADY);ctx.fillStyle="#ff5a4f";ctx.fillRect(c[0]-3,c[1]-2,6,4)}
+  if(MIS[cur].wall){const a=P(WALL.x0,WALL.y1),b=P(WALL.x1,WALL.y0);ctx.fillStyle="#8a8f86";ctx.fillRect(a[0],a[1],b[0]-a[0],Math.max(2,b[1]-a[1]))}
+  ctx.fillStyle="#e8e2d4";const t=P(-3,3);ctx.fillRect(t[0],t[1],6*sc+1,6*sc+1);
+  ctx.strokeStyle="rgba(61,220,132,.8)";ctx.lineWidth=1.2;ctx.beginPath();trail.forEach((p,i)=>{const q=P(p[0],p[1]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.stroke();
+  const dp=P(S.x,S.y);ctx.translate(dp[0],dp[1]);ctx.rotate(S.h);ctx.fillStyle="#ffb21e";ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(5,5);ctx.lineTo(0,2);ctx.lineTo(-5,5);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+/* ---------------- métricas ---------------- */
+function subj(tx=0,ty=0,tz=AIM_Z){
+  sh=Math.sin(S.h);ch=Math.cos(S.h);
+  const dx=tx-S.x,dy=ty-S.y,dz=tz-S.z;
+  const xc=dx*ch-dy*sh,yf=dx*sh+dy*ch;
+  const e=Math.atan2(xc,yf);                 // rad, + = torre à direita
+  const t=S.g*D2R;const dep=yf*Math.cos(t)-dz*Math.sin(t),up=yf*Math.sin(t)+dz*Math.cos(t);
+  return{e,va:Math.atan2(up,dep)/D2R,d:Math.hypot(dx,dy)};
+}
+
+function evaluate(dt){
+  const m=cur,s=subj(),ed=s.e/D2R,sp=Math.hypot(S.vx,S.vy);
+  let ok=true,hint="",prog=0,done=false,lvl="warn";
+  if(m==="orbital"){
+    const a=Math.atan2(S.x,S.y);if(run.pa!==undefined)run.acc+=wrap(a-run.pa);run.pa=a;
+    prog=Math.abs(run.acc)/TAU;done=prog>=1;
+    const cen=Math.abs(ed)<10,dOk=Math.abs(s.d-25)<6,zOk=Math.abs(S.z-10)<4;ok=cen&&dOk&&zOk;
+    if(!cen)hint=ed>0?"A torre fugiu pra direita: stick esquerdo pra direita (yaw)":"A torre fugiu pra esquerda: stick esquerdo pra esquerda (yaw)";
+    else if(s.d>31)hint="Longe demais: um toque no stick direito pra frente";
+    else if(s.d<19)hint="Perto demais: puxe o stick direito pra trás";
+    else if(!zOk)hint=S.z>10?"Subiu: stick esquerdo um pouco pra baixo":"Desceu: stick esquerdo um pouco pra cima";
+    else if(sp<1)hint="Stick direito pro lado e esquerdo pro lado oposto";
+    else{hint="Isso! Mantenha os dois sticks firmes";lvl="good"}
+  }else if(m==="aprox"){
+    prog=clamp((70-s.d)/48,0,1);done=s.d<=22;
+    const cen=Math.abs(ed)<6,line=Math.abs(S.x)<3,zOk=Math.abs(S.z-12)<3;ok=cen&&line&&zOk;
+    if(!line)hint="Saiu da linha: alivie o stick direito pros lados";
+    else if(!cen)hint="Não gire: deixe o stick esquerdo no centro";
+    else if(!zOk)hint=S.z>12?"Está subindo: solte o stick esquerdo":"Está descendo: solte o stick esquerdo";
+    else if(sp<1)hint="Empurre o stick direito pra frente";
+    else{hint="Ótimo, reto e constante";lvl="good"}
+  }else if(m==="afast"){
+    const pd=clamp((s.d-18)/42,0,1),pz=clamp((S.z-6)/19,0,1);prog=(pd+pz)/2;done=pd>=1&&pz>=1;
+    const cen=Math.abs(ed)<8,line=Math.abs(S.x)<4;ok=cen&&line;
+    if(!line)hint="Saiu da linha: alivie o stick direito pros lados";
+    else if(!cen)hint="Torre fora do centro: corrija no stick esquerdo (yaw)";
+    else if(sp<.8&&Math.abs(S.vz)<.3&&!done)hint="Stick direito pra trás + esquerdo pra cima, juntos";
+    else if(pd-pz>.25)hint="Suba mais: stick esquerdo pra cima";
+    else if(pz-pd>.25)hint="Recue mais: stick direito pra trás";
+    else if(s.va<-13)hint="Torre caindo na tela: desça o gimbal";
+    else if(s.va>13)hint="Torre alta na tela: suba o gimbal";
+    else{hint="Perfeito, movimento combinado";lvl="good"}
+  }else if(m==="revel"){
+    prog=clamp((S.z-3)/25,0,1);done=S.z>=28;
+    const cen=Math.abs(ed)<6,line=Math.abs(S.x)<3&&Math.abs(s.d-40)<6,slow=S.vz<3.2;ok=cen&&line&&slow;
+    if(!line)hint="Fique no lugar: só o stick esquerdo pra cima";
+    else if(!cen)hint="Não gire: deixe o stick esquerdo só na vertical";
+    else if(!slow)hint="Mais devagar: revelação boa é lenta";
+    else if(S.vz<.3)hint="Stick esquerdo pra cima, devagar";
+    else if(S.z>18&&s.va<-12)hint="A torre apareceu: desça um pouco o gimbal";
+    else{hint="Lindo, continue subindo";lvl="good"}
+  }else if(m==="pedestal"){
+    prog=clamp((S.z-2)/28,0,1);done=S.z>=30;
+    const still=Math.hypot(S.x,S.y+35)<2.5,cen=Math.abs(ed)<6,slow=S.vz<3.5;ok=still&&cen&&slow;
+    if(!still)hint="Saiu do lugar: solte o stick direito";
+    else if(!cen)hint="Não gire: o stick esquerdo vai só pra cima";
+    else if(!slow)hint="Mais devagar: subida bonita é lenta";
+    else if(S.vz<.3&&!done)hint="Só o stick esquerdo pra cima";
+    else{hint="Subida limpa, sem desviar";lvl="good"}
+  }else if(m==="pan"){
+    if(run.hp!==undefined)run.acc+=wrap(S.h-run.hp);run.hp=S.h;
+    prog=clamp(run.acc/Math.PI,0,1);done=run.acc>=Math.PI;
+    const rate=Math.abs(S.yr)/D2R;if(rate>3){run.ema=run.ema?run.ema+(rate-run.ema)*Math.min(1,dt/(run.emaT<1.5?.25:1.5)):rate;run.emaT=(run.emaT||0)+dt}
+    const still=Math.hypot(S.x,S.y+30)<2,zOk=Math.abs(S.z-8)<1.5,steady=rate<3||!run.ema||run.emaT<1.5||Math.abs(rate-run.ema)/run.ema<.25,calm=rate<40,dir=run.acc>-.2;
+    ok=still&&zOk&&steady&&calm&&dir;
+    if(!dir)hint="Gire pra direita: stick esquerdo pra direita";
+    else if(!still)hint="Saiu do lugar: o stick direito fica no centro";
+    else if(!zOk)hint=S.z>8?"Está subindo: o esquerdo vai só pro lado":"Está descendo: o esquerdo vai só pro lado";
+    else if(!calm)hint="Rápido demais: pan bonito é lento";
+    else if(!steady)hint="Mantenha o giro constante, mesma pressão no stick";
+    else if(rate<3&&!done)hint="Stick esquerdo pra direita, devagar";
+    else{hint="Giro suave e constante";lvl="good"}
+  }else if(m==="travel"){
+    prog=clamp((S.x+30)/60,0,1);done=S.x>=30;
+    if(sp>1){run.ema=run.ema?run.ema+(sp-run.ema)*Math.min(1,dt/(run.emaT<1.5?.25:1.5)):sp;run.emaT=(run.emaT||0)+dt}
+    const noYaw=Math.abs(wrap(S.h))<5*D2R,line=Math.abs(S.y+20)<3,zOk=Math.abs(S.z-6)<1.5,steady=sp<1||!run.ema||run.emaT<1.5||Math.abs(sp-run.ema)/run.ema<.2;
+    ok=noYaw&&line&&zOk&&steady;
+    if(!noYaw)hint="Não gire: travelling é só o stick direito pro lado";
+    else if(!line)hint=S.y>-20?"Está indo pra frente: um toque do stick direito pra trás":"Está indo pra trás: um toque do stick direito pra frente";
+    else if(!zOk)hint=S.z>6?"Está subindo: solte o stick esquerdo":"Está descendo: solte o stick esquerdo";
+    else if(!steady)hint="Mantenha a mesma pressão no stick";
+    else if(sp<1&&!done)hint="Stick direito pra direita, pressão constante";
+    else{hint="Repare a torre cruzando o quadro";lvl="good"}
+  }else if(m==="flyover"){
+    prog=clamp((S.y+45)/60,0,1);done=S.y>=15;
+    const line=Math.abs(S.x)<3,zOk=Math.abs(S.z-30)<2.5,noYaw=Math.abs(wrap(S.h))<6*D2R,before=S.y<-4,aim=before?Math.abs(s.va)<12:S.g>=75;
+    ok=line&&zOk&&noYaw&&aim;
+    if(!line)hint="Saiu da linha: alivie o stick direito pros lados";
+    else if(!noYaw)hint="Não gire: deixe o stick esquerdo no centro";
+    else if(!zOk)hint=S.z<30?"Baixo demais: cuidado com a torre":"Subiu: solte o stick esquerdo";
+    else if(!aim)hint=before?(s.va<0?"A torre está descendo na tela: desça o gimbal":"Torre alta na tela: suba um pouco o gimbal"):"Em cima da torre: gimbal todo pra baixo (90°)";
+    else if(sp<1&&!done)hint="Stick direito pra frente";
+    else{hint="Isso, gimbal acompanhando a torre";lvl="good"}
+  }else if(m==="flythrough"){
+    prog=clamp((S.y+70)/55,0,1);done=S.y>=-15;
+    const near=Math.abs(S.y+30)<12,line=Math.abs(S.x)<(near?1.5:3),zOk=S.z>3.5&&S.z<9,cen=Math.abs(ed)<6;ok=line&&zOk&&cen;
+    if(!line)hint=near?"Mire no centro do portal: toques leves no stick direito pro lado":"Saiu da linha: alivie o stick direito pros lados";
+    else if(!zOk)hint=S.z>=9?"Alto demais: vai bater na viga":"Baixo demais: um toque no stick esquerdo pra cima";
+    else if(!cen)hint="Não gire: deixe o stick esquerdo no centro";
+    else if(sp<1&&!done)hint="Stick direito pra frente, firme";
+    else{hint=S.y<-30?"Mira no centro e passa direto":"Passou! Siga reto";lvl="good"}
+  }else if(m==="espiral"){
+    const a=Math.atan2(S.x,S.y);if(run.pa!==undefined)run.acc+=wrap(a-run.pa);run.pa=a;
+    prog=Math.min(Math.abs(run.acc)/TAU,clamp((S.z-6)/20,0,1));done=Math.abs(run.acc)>=TAU&&S.z>=26;
+    const cen=Math.abs(ed)<10,dOk=Math.abs(s.d-25)<6,vOk=Math.abs(s.va)<14,climb=S.z>=26||S.vz>.2;ok=cen&&dOk&&vOk&&climb;
+    if(!cen)hint=ed>0?"A torre fugiu pra direita: mais stick esquerdo pra direita (yaw)":"A torre fugiu pra esquerda: menos giro no stick esquerdo";
+    else if(s.d>31)hint="Longe demais: um toque no stick direito pra frente";
+    else if(s.d<19)hint="Perto demais: puxe o stick direito pra trás";
+    else if(!climb)hint="Suba enquanto gira: stick esquerdo um pouco pra cima";
+    else if(!vOk)hint=s.va<0?"A torre está descendo na tela: desça o gimbal":"Torre alta na tela: suba o gimbal";
+    else if(sp<1)hint="Stick direito pro lado e esquerdo na diagonal oposta";
+    else{hint="Espiral no ponto";lvl="good"}
+  }else if(m==="lateral"){
+    const c=subj(CAR.x,ROADY,1),ec=c.e/D2R,ex=CAR.x-S.x;
+    prog=clamp((CAR.x+88)/176,0,1);done=CAR.x>=88;
+    const moving=run.t>2.5,cen=Math.abs(ec)<10,side=Math.abs(S.y-40)<5,zOk=S.z>3&&S.z<12;ok=!moving||(cen&&side&&zOk&&Math.abs(ex)<10);
+    if(!moving)hint="Prepare-se: o carro vai sair pela esquerda";
+    else if(ex>10)hint="Ficou pra trás: mais stick direito pra direita";
+    else if(ex<-10)hint="Passou do carro: alivie o stick direito";
+    else if(!side)hint=S.y>40?"Perto demais da estrada: stick direito um pouco pra trás":"Longe da estrada: stick direito um pouco pra frente";
+    else if(!cen)hint=ec>0?"Carro fugindo pra direita: stick esquerdo pra direita (yaw)":"Carro fugindo pra esquerda: stick esquerdo pra esquerda (yaw)";
+    else if(!zOk)hint=S.z>12?"Alto demais: stick esquerdo pra baixo":"Baixo demais: stick esquerdo pra cima";
+    else{hint="Lado a lado com o carro";lvl="good"}
+  }else if(m==="topdown"){
+    prog=clamp((S.z-30)/40,0,1);done=S.z>=70&&S.g>=85;
+    const over=s.d<4,g90=S.g>=85,slow=S.vz<3.5;ok=over&&g90&&slow;
+    if(!g90)hint="Gimbal todo pra baixo: 90°";
+    else if(!over)hint="Saiu de cima da torre: corrija no stick direito";
+    else if(!slow)hint="Mais devagar: top-down bonito é lento";
+    else if(S.vz<.3&&!done)hint="Stick esquerdo pra cima, devagar";
+    else{hint=Math.abs(S.yr)>.05?"Lindo, o mapa girando":"Isso! Bônus: um toque leve de giro no esquerdo";lvl="good"}
+  }else if(m==="seguir"){
+    const c=subj(CAR.x,ROADY,1),ec=c.e/D2R;
+    prog=clamp((CAR.x+88)/176,0,1);done=CAR.x>=88;
+    const moving=run.t>2.5,cen=Math.abs(ec)<10,dOk=c.d>12&&c.d<28,zOk=S.z>5&&S.z<15;ok=!moving||(cen&&dOk&&zOk);
+    if(!moving)hint="Prepare-se: o carro vai sair";
+    else if(c.d>40)hint="O carro fugiu: stick direito todo pra frente";
+    else if(c.d>28)hint="Ficou pra trás: mais stick direito pra frente";
+    else if(c.d<12)hint="Perto demais: alivie o stick direito";
+    else if(!cen)hint=ec>0?"Carro fugindo pra direita: stick esquerdo pra direita (yaw)":"Carro fugindo pra esquerda: stick esquerdo pra esquerda (yaw)";
+    else if(!zOk)hint=S.z>15?"Alto demais: stick esquerdo pra baixo":"Baixo demais: stick esquerdo pra cima";
+    else{hint="Perfeito, mesma velocidade do carro";lvl="good"}
+  }else if(m==="parallax"){
+    prog=clamp((s.d-26)/34,0,1);done=s.d>=60;
+    if(sp>1){run.ema=run.ema?run.ema+(sp-run.ema)*Math.min(1,dt/(run.emaT<1.5?.25:1.5)):sp;run.emaT=(run.emaT||0)+dt}
+    const line=Math.abs(S.x)<2.5,cen=Math.abs(ed)<5,zOk=Math.abs(S.z-10)<1.5,steady=sp<1||!run.ema||run.emaT<1.5||Math.abs(sp-run.ema)/run.ema<.2;ok=line&&cen&&zOk&&steady;
+    if(!line)hint="Saiu da linha: alivie o stick direito pros lados";
+    else if(!cen)hint=ed>0?"Torre fugindo pra direita: corrija com o stick esquerdo (yaw)":"Torre fugindo pra esquerda: corrija com o stick esquerdo (yaw)";
+    else if(!zOk)hint=S.z>10?"Está subindo: solte o stick esquerdo":"Está descendo: solte o stick esquerdo";
+    else if(!steady)hint=sp>run.ema?"Acelerou: mantenha a mesma pressão no stick":"Desacelerou: mantenha a mesma pressão no stick";
+    else if(sp<1&&!done)hint="Só o stick direito pra trás, pressão constante";
+    else{hint="Velocidade constante: o keyframe linear vai casar";lvl="good"}
+  }else if(m==="tilt"){
+    const pd=clamp((80-s.d)/40,0,1),pg=clamp((70-S.g)/55,0,1);prog=(pd+pg)/2;done=pd>=1&&pg>=1;
+    const line=Math.abs(S.x)<4,cen=Math.abs(ed)<8,zOk=Math.abs(S.z-18)<3,sync=Math.abs(pd-pg)<.3;ok=line&&cen&&zOk&&sync;
+    if(!line)hint="Saiu da linha: alivie o stick direito pros lados";
+    else if(!cen)hint="Não gire: deixe o stick esquerdo no centro";
+    else if(!zOk)hint=S.z>18?"Está subindo: solte o stick esquerdo":"Está descendo: solte o stick esquerdo";
+    else if(pd-pg>.3)hint="Suba a câmera: rodinha do gimbal pra cima";
+    else if(pg-pd>.3)hint="Avance mais: stick direito pra frente";
+    else if(sp<.8&&!done)hint="Stick direito pra frente e gimbal subindo, juntos";
+    else{hint="Isso, o horizonte aparecendo no ritmo certo";lvl="good"}
+  }else{hint="Voo livre: explore os comandos";lvl="good";ok=true}
+  run.okNow=ok;run.prog=prog;
+  if(run.started&&!(MIS[m].car&&run.t<=2.5)){run.total+=dt;if(ok)run.good+=dt}
+  run.hintT-=dt;if(run.hintT<=0){setHint(hint,lvl);run.hintT=.35}
+  if(done&&!MIS[m].free)finish();
+}
+function setHint(t,l){const h=$("hint");h.textContent=t;h.className="hint "+l}
+
+/* ---------------- piloto automático (demonstração) ---------------- */
+function autopilot(){
+  const s=subj(),out={lx:0,ly:0,rx:0,ry:0};
+  const yawFix=r=>inv(clamp(r/PHYS.yawMax,-1,1));
+  const body=(vx,vy)=>{const a=Math.sin(S.h),b=Math.cos(S.h);out.ry=inv(clamp((vx*a+vy*b)/PHYS.vmax,-1,1));out.rx=inv(clamp((vx*b-vy*a)/PHYS.vmax,-1,1))};
+  const track=(tx,ty,tvx,tvy,e)=>{const dx=tx-S.x,dy=ty-S.y,d2=Math.max(4,dx*dx+dy*dy);return yawFix((dy*(tvx-S.vx)-dx*(tvy-S.vy))/d2+2*e)};
+  if(cur==="orbital"){
+    out.rx=-.6;const v=curve(.6)*PHYS.vmax;
+    out.lx=yawFix(v/Math.max(5,s.d)+1.6*s.e);
+    out.ry=inv(clamp((s.d-25)*.06,-.5,.5));out.ly=inv(clamp((10-S.z)*.15,-.5,.5));S.gt=14;
+  }else if(cur==="aprox"){
+    out.ry=.62;out.lx=yawFix(1.6*s.e);out.rx=inv(clamp(-S.x*.08,-.3,.3));out.ly=inv(clamp((12-S.z)*.15,-.4,.4));S.gt=8;
+  }else if(cur==="afast"){
+    out.ry=s.d<61?-.6:0;out.ly=S.z<26?.55:0;out.lx=yawFix(1.6*s.e);out.rx=inv(clamp(-S.x*.08,-.3,.3));
+    S.gt=clamp(Math.atan2(S.z-AIM_Z,s.d)/D2R,0,60);
+  }else if(cur==="pedestal"){
+    body(-S.x*.6,(-35-S.y)*.6);out.ly=S.z<30.5?.65:0;out.lx=yawFix(1.6*s.e);S.gt=clamp((S.z-10)*.6,0,12);
+  }else if(cur==="pan"){
+    body(-S.x*.6,(-30-S.y)*.6);out.lx=run.acc<Math.PI+.05?.55:0;out.ly=inv(clamp((8-S.z)*.15,-.4,.4));S.gt=5;
+  }else if(cur==="travel"){
+    body(S.x<30.5?4:0,(-20-S.y)*.6);out.lx=yawFix(-2*wrap(S.h));out.ly=inv(clamp((6-S.z)*.15,-.4,.4));S.gt=3;
+  }else if(cur==="flyover"){
+    body(-S.x*.5,S.y<15.5?4.5:0);out.lx=yawFix(-2*wrap(S.h));out.ly=inv(clamp((30-S.z)*.15,-.4,.4));
+    S.gt=S.y<-1?clamp(Math.atan2(S.z-AIM_Z,-S.y)/D2R,0,90):90;
+  }else if(cur==="flythrough"){
+    body(-S.x*.6,S.y<-14.5?5:0);out.lx=yawFix(1.6*s.e);out.ly=inv(clamp((6-S.z)*.15,-.4,.4));S.gt=4;
+  }else if(cur==="espiral"){
+    out.rx=-.6;const v=curve(.6)*PHYS.vmax;
+    out.lx=yawFix(v/Math.max(5,s.d)+1.6*s.e);out.ry=inv(clamp((s.d-25)*.06,-.5,.5));
+    out.ly=S.z<28?.36:inv(clamp((28-S.z)*.15,-.3,.3));S.gt=clamp(Math.atan2(S.z-AIM_Z,s.d)/D2R,0,60);
+  }else if(cur==="lateral"){
+    const c=subj(CAR.x,ROADY,1),mv=run.t>2.5&&CAR.x<88;
+    body(clamp((mv?CAR_V:0)+(CAR.x-S.x)*.6,-3,10),(40-S.y)*.6);
+    out.lx=track(CAR.x,ROADY,mv?CAR_V:0,0,c.e);out.ly=inv(clamp((6-S.z)*.15,-.4,.4));S.gt=8;
+  }else if(cur==="topdown"){
+    body(-S.x*.6,-S.y*.6);out.ly=S.g>80&&S.z<71?.65:0;out.lx=S.z>34?.35:0;S.gt=90;
+  }else if(cur==="seguir"){
+    const c=subj(CAR.x,ROADY,1),mv=run.t>2.5&&CAR.x<88;
+    body(clamp((mv?CAR_V:0)+(CAR.x-S.x-18)*.6,-3,10),(ROADY-S.y)*.6);
+    out.lx=track(CAR.x,ROADY,mv?CAR_V:0,0,c.e);out.ly=inv(clamp((9-S.z)*.15,-.4,.4));S.gt=14;
+  }else if(cur==="parallax"){
+    body(-S.x*.5,s.d<60.5?-3:0);out.lx=yawFix(1.6*s.e);out.ly=inv(clamp((10-S.z)*.15,-.4,.4));S.gt=0;
+  }else if(cur==="tilt"){
+    body(-S.x*.5,s.d>40.5?4.6:0);out.lx=yawFix(1.6*s.e);out.ly=inv(clamp((18-S.z)*.15,-.4,.4));
+    S.gt=70-55*clamp((80-s.d)/40+.03,0,1);
+  }else if(cur==="revel"){
+    out.ly=S.z<29?.6:0;out.lx=yawFix(1.6*s.e);out.rx=inv(clamp(-S.x*.08,-.3,.3));out.ry=inv(clamp((s.d-40)*.05,-.3,.3));
+    S.gt=S.z>14?clamp(Math.atan2(S.z-AIM_Z,s.d)/D2R*.85,0,40):0;
+  }
+  return out;
+}
+function describe(s){
+  const p=[],T=.12;
+  if(s.ly>T)p.push("Esq ↑ subir");else if(s.ly<-T)p.push("Esq ↓ descer");
+  if(s.lx>T)p.push("Esq → girar direita");else if(s.lx<-T)p.push("Esq ← girar esquerda");
+  if(s.ry>T)p.push("Dir ↑ frente");else if(s.ry<-T)p.push("Dir ↓ ré");
+  if(s.rx>T)p.push("Dir → lateral");else if(s.rx<-T)p.push("Dir ← lateral");
+  return p;
+}
+
+/* ---------------- física ---------------- */
+function userSticks(){
+  const k=KB.Shift?1:.7,o={...U};
+  if(!padL.active){o.ly=U.ly||((KB.KeyW?1:0)-(KB.KeyS?1:0))*k;o.lx=U.lx||((KB.KeyD?1:0)-(KB.KeyA?1:0))*k}
+  if(!padR.active){o.ry=U.ry||((KB.ArrowUp?1:0)-(KB.ArrowDown?1:0))*k;o.rx=U.rx||((KB.ArrowRight?1:0)-(KB.ArrowLeft?1:0))*k}
+  return o;
+}
+let lastLive="";
+function step(dt){
+  const s=demo?autopilot():userSticks();
+  if(!demo){S.gt=+$("gim").value}else{$("gim").value=Math.round(S.gt)}
+  if(!run.started&&(demo||Math.abs(s.lx)+Math.abs(s.ly)+Math.abs(s.rx)+Math.abs(s.ry)>.1))run.started=true;
+  if(MIS[cur].car){run.t+=dt;if(run.t>2.5&&CAR.x<88)CAR.x=Math.min(88,CAR.x+CAR_V*dt)}
+  const fwd=curve(s.ry)*PHYS.vmax,rt=curve(s.rx)*PHYS.vmax;
+  sh=Math.sin(S.h);ch=Math.cos(S.h);
+  const tvx=fwd*sh+rt*ch,tvy=fwd*ch-rt*sh,k=1-Math.exp(-dt/PHYS.tau);
+  S.vx+=(tvx-S.vx)*k;S.vy+=(tvy-S.vy)*k;S.vz+=(curve(s.ly)*PHYS.vz-S.vz)*k;
+  S.yr+=(curve(s.lx)*PHYS.yawMax-S.yr)*(1-Math.exp(-dt/.15));
+  S.x=clamp(S.x+S.vx*dt,-150,150);S.y=clamp(S.y+S.vy*dt,-150,150);S.z=clamp(S.z+S.vz*dt,.5,120);S.h+=S.yr*dt;
+  if(S.z<=.5&&S.vz<0)S.vz=0;
+  S.g+=clamp(S.gt-S.g,-50*dt,50*dt);
+  $("gimOut").textContent=`-${Math.round(S.g)}°`;
+  const lt=trail[trail.length-1];if(!lt||Math.hypot(lt[0]-S.x,lt[1]-S.y)>1.2){trail.push([S.x,S.y]);if(trail.length>400)trail.shift()}
+  if(MIS[cur].dolly&&run.started){run.rt+=dt;run.rec.push({t:run.rt,x:S.x,y:S.y,z:S.z,h:S.h,g:S.g,d:Math.hypot(S.x,S.y),v:Math.hypot(S.vx,S.vy)})}
+  // colisão
+  if(Math.abs(S.x)<3.6&&Math.abs(S.y)<3.6&&S.z<21.3)return crash("Bateu na torre");
+  if(MIS[cur].gate&&GATE.some(b=>S.x>b.x0-.5&&S.x<b.x1+.5&&S.y>b.y0-.5&&S.y<b.y1+.5&&S.z>b.z0-.3&&S.z<b.z1+.4))return crash("Bateu no portal");
+  if(MIS[cur].wall&&S.x>WALL.x0-.5&&S.x<WALL.x1+.5&&S.y>WALL.y0-.6&&S.y<WALL.y1+.6&&S.z<WALL.z1+.4)return crash("Bateu no muro");
+  // sticks na tela
+  setKnob(padL,s.lx,s.ly);setKnob(padR,s.rx,s.ry);
+  const parts=describe(s);const html=(demo?'<span class="demo">DEMONSTRAÇÃO</span>':"")+parts.map(p=>`<span>${p}</span>`).join("");
+  if(html!==lastLive){$("live").innerHTML=html;lastLive=html}
+  evaluate(dt);
+}
+
+/* ---------------- sticks ---------------- */
+function makePad(el,kx,ky){
+  const knob=el.querySelector(".knob");const pad={el,knob,id:null,active:false};
+  const set=e=>{const r=el.getBoundingClientRect(),R=r.width/2,lim=R-knob.offsetWidth/2;
+    let dx=e.clientX-(r.left+R),dy=e.clientY-(r.top+R);const L=Math.hypot(dx,dy);if(L>lim){dx*=lim/L;dy*=lim/L}
+    U[kx]=dx/lim;U[ky]=-dy/lim};
+  el.addEventListener("pointerdown",e=>{e.preventDefault();pad.id=e.pointerId;pad.active=true;el.setPointerCapture(e.pointerId);el.classList.add("on");takeOver();set(e)});
+  el.addEventListener("pointermove",e=>{if(e.pointerId===pad.id)set(e)});
+  const end=e=>{if(e.pointerId!==pad.id)return;pad.id=null;pad.active=false;U[kx]=0;U[ky]=0;el.classList.remove("on")};
+  el.addEventListener("pointerup",end);el.addEventListener("pointercancel",end);
+  return pad;
+}
+function setKnob(p,x,y){const lim=p.el.clientWidth/2-p.knob.offsetWidth/2;p.knob.style.transform=`translate(${(x*lim).toFixed(1)}px,${(-y*lim).toFixed(1)}px)`;p.el.classList.toggle("auto",demo)}
+const padL=makePad($("padL"),"lx","ly"),padR=makePad($("padR"),"rx","ry");
+function takeOver(){if(demo){demo=false;setHint("Você assumiu o controle","warn");run.hintT=1.2}}
+
+addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"&&e.code.startsWith("Arrow"))return;const c=e.key==="Shift"?"Shift":e.code;KB[c]=true;if(/^(Arrow|KeyW|KeyA|KeyS|KeyD)/.test(c)){takeOver();if(c.startsWith("Arrow"))e.preventDefault()}});
+addEventListener("keyup",e=>{KB[e.key==="Shift"?"Shift":e.code]=false});
+addEventListener("blur",()=>{for(const k in KB)KB[k]=false});
+
+/* ---------------- fluxo ---------------- */
+function start(key,withDemo){
+  cur=key;demo=!!withDemo;paused=false;$("card").hidden=true;
+  const st0=MIS[key].st;Object.assign(S,{x:st0[0],y:st0[1],z:st0[2],h:st0[3],g:st0[4],gt:st0[4],vx:0,vy:0,vz:0,yr:0});
+  $("gim").value=st0[4];trail=[];
+  run={good:0,total:0,prog:0,acc:0,pa:undefined,started:false,okNow:true,hintT:0,t:0,rec:[],rt:0,ema:0};replay=null;CAR.x=-88;
+  const m=MIS[key];$("mName").textContent=m.n;$("mDesc").textContent=m.d;$("mCmd").textContent=m.cmd;
+  $("mEdit").hidden=!m.edit;if(m.edit)$("mEdit").innerHTML=`<h3>Na edição · como fazer o keyframe</h3><ol>${m.edit.map(x=>`<li>${x}</li>`).join("")}</ol>`;
+  $("btnDemo").hidden=!!m.free;$("btnEd").hidden=!m.edit;
+  renderChips();lastLive="";
+}
+function finish(){
+  paused=true;const sc=run.total>0?Math.round(run.good/run.total*100):100;const m=MIS[cur];
+  const next=ORDER[(ORDER.indexOf(cur)+1)%ORDER.length];
+  let html;
+  if(demo){
+    html=`<h3>Fim da demonstração</h3><p>Repare nos sticks: ${m.cmd}</p><div class="row"><button class="btn pri" data-act="try">Tentar agora</button><button class="btn" data-act="demo">Ver de novo</button></div>`;
+  }else{
+    const stars=sc>=85?3:sc>=65?2:1;
+    if(!best[cur]||sc>best[cur]){best[cur]=sc;try{localStorage.setItem("bm-sim-best",JSON.stringify(best))}catch(e){}}
+    html=`<h3>${m.n} completo</h3><div class="stars" aria-label="${stars} de 3 estrelas">${"★".repeat(stars)}<span style="opacity:.25">${"★".repeat(3-stars)}</span></div>
+      <p class="score">Precisão: ${sc}% · Recorde: ${best[cur]}%</p>${sc<85?`<p>${m.tip}</p>`:"<p>Movimento limpo, pronto pra gravar de verdade.</p>"}
+      <div class="row"><button class="btn pri" data-act="try">Tentar de novo</button><button class="btn" data-act="next" data-next="${next}">Próximo: ${MIS[next].n}</button></div>`;
+  }
+  if(m.dolly){const ep=editPlan();run.ep=ep;if(ep){
+    html=html.replace('btn pri" data-act="try"','btn" data-act="try"').replace('<div class="row">',`<p class="score">Na edição: zoom de 100% a ${Math.round(ep.k*100)}% · a torre varia ${ep.dev.toFixed(1).replace(".",",")}% de tamanho</p><p>Keyframe 1: 100% no primeiro quadro · Keyframe 2: ${Math.round(ep.k*100)}% no último quadro (${ep.T.toFixed(1).replace(".",",")} s depois) · interpolação linear.</p><p>${ep.dev<3?"Abaixo de 3% ninguém percebe. Pode editar.":ep.dev<6?"Dá pra notar a torre respirando. Tente segurar a pressão mais igual.":"A torre pulsa na edição: a velocidade variou demais."}</p><div class="row"><button class="btn pri" data-act="edit">Ver resultado da edição</button><button class="btn" data-act="ed">Como fazer na edição</button>`)}}
+  lastCard=html;showCard(html);renderChips();
+}
+function editPlan(){
+  const r=run.rec,mv=r.filter(f=>f.v>1).map(f=>f.v).sort((a,b)=>a-b);if(mv.length<30)return null;
+  const med=mv[mv.length>>1];let i0=r.findIndex(f=>f.v>=.85*med),i1=r.length-1;while(i1>i0&&r[i1].v<.85*med)i1--;
+  const seg=r.slice(i0,i1+1);if(seg.length<20)return null;
+  const t0=seg[0].t,T=seg[seg.length-1].t-t0,k=(seg[seg.length-1].d-3)/(seg[0].d-3);let dev=0;
+  seg.forEach(f=>{const kk=1+(k-1)*(f.t-t0)/T;dev=Math.max(dev,Math.abs(kk*(seg[0].d-3)/(f.d-3)-1))});
+  return{seg,k,T,t0,dev:dev*100};
+}
+function startReplay(){$("card").hidden=true;replay={t:-.6,j:0};setHint("Depois da edição: keyframe linear de escala","good")}
+function crash(msg){
+  paused=true;demo=false;
+  showCard(`<h3>${msg}!</h3><p>Sem problema, no simulador o drone não quebra. Mantenha distância dos obstáculos.</p><div class="row"><button class="btn pri" data-act="try">Tentar de novo</button><button class="btn" data-act="demo">Ver demonstração</button></div>`);
+}
+function showCard(html){const c=$("card");c.innerHTML=`<div>${html}</div>`;c.hidden=false;
+  c.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const a=b.dataset.act;if(a==="try")start(cur,false);else if(a==="demo")start(cur,true);else if(a==="edit")startReplay();else if(a==="ed")startEditor();else start(b.dataset.next,false)}));
+  const f=c.querySelector("button");if(f)f.focus({preventScroll:true});}
+function renderChips(){
+  $("chips").innerHTML=ORDER.map(k=>`<button class="chip" id="chip-${k}" data-k="${k}" aria-pressed="${k===cur}">${MIS[k].n}${best[k]!==undefined?`<small>${best[k]}%</small>`:""}</button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(b=>b.addEventListener("click",()=>start(b.dataset.k,false)));
+}
+$("btnDemo").addEventListener("click",()=>start(cur,true));
+$("btnReset").addEventListener("click",()=>start(cur,false));
+$("gim").addEventListener("input",()=>{takeOver()});
+
+/* ---------------- demonstração da edição (parallax) ---------------- */
+const RAW=13.5,TI=1,TO=12.5,OFF=3;
+const takeD=t=>{if(t<1)return 1.5*t*t;if(t<=12.5)return 1.5+3*(t-1);const u=Math.min(t,13.5)-12.5;return 36+3*u-1.5*u*u};
+const D0=36,KE=(D0+takeD(TO)-OFF)/(D0+takeD(TI)-OFF),kAt=t=>1+(KE-1)*clamp((t-TI)/(TO-TI),0,1),KP=Math.round(KE*100);
+function setTake(t){Object.assign(S,{x:0,y:-D0-takeD(t),z:10,h:0,g:0,vx:0,vy:0,vz:0,yr:0})}
+const EDS=[
+ {d:6,c:"Esse é o take cru, do jeito que saiu do drone: recuo em linha reta, sem zoom. Repare que a torre vai ficando pequena.",f:u=>({pt:u*RAW})},
+ {d:5,c:"Primeiro, corte o começo e o fim do clipe, onde o drone acelera e freia. É só arrastar as pontas do clipe pra dentro.",f:u=>({pt:TI,trim:ss(.15,.75,u),hl:"clip"})},
+ {d:5,c:"Confira se a torre está no centro do quadro. Se não estiver, mova o Ponto de ancoragem pro centro dela. Aqui ela já está.",f:u=>({pt:TI,trim:1,anchor:1,hl:"rowAnchor"})},
+ {d:5.5,c:"Com o playhead no primeiro quadro, deixe a Escala em 100% e clique no relógio ao lado dela. Isso cria o primeiro keyframe.",f:u=>({pt:TI,trim:1,hl:"rowScale",kf1:u>.55,clock:u>.55})},
+ {d:5,c:"Marque o topo e a base da torre com duas guias (linhas azuis). Elas são a sua régua pra acertar o tamanho depois.",f:u=>({pt:TI,trim:1,kf1:1,clock:1,guides:ss(.1,.5,u)})},
+ {d:5.5,c:"Agora leve o playhead até o último quadro. Sem zoom, a torre ficou bem menor que as guias.",f:u=>({pt:TI+(TO-TI)*ss(0,.8,u),trim:1,kf1:1,clock:1,guides:1})},
+ {d:6.5,c:`Aumente a Escala até a torre encostar nas guias de novo. Aqui deu ${KP}%. O segundo keyframe aparece sozinho.`,f:u=>{const k=1+(KE-1)*ss(.1,.8,u);return{pt:TO,k,trim:1,kf1:1,kf2:u>.8,clock:1,guides:1,hl:"rowScale"}}},
+ {d:6.5,c:"Clique com o botão direito no keyframe e confira se está Linear. Sem ease in/out: o drone voou com velocidade constante, então o zoom também tem que ser constante.",f:u=>({pt:TO,k:KE,trim:1,kf1:1,kf2:1,line:u>.6,clock:1,guides:1,menu:u>.12&&u<.94})},
+ {d:9,c:"Dê play. A torre fica do mesmo tamanho, encostada nas guias, e o fundo cresce atrás dela. Esse é o Parallax.",f:u=>{const pt=TI+(TO-TI)*ss(.04,.96,u);return{pt,k:kAt(pt),trim:1,kf1:1,kf2:1,line:1,clock:1,guides:1}}}
+];
+(function(){const r=$("ruler");for(let t=0;t<=13;t+=2)r.insertAdjacentHTML("beforeend",`<span style="left:${t/RAW*100}%">${t}s</span>`)})();
+const appEl=document.querySelector(".app");
+function startEditor(){
+  if(cur!=="parallax")start("parallax",false);
+  paused=true;demo=false;replay=null;$("card").hidden=true;$("hint").hidden=true;
+  ED={step:0,u:0,playing:true};appEl.classList.add("editing");$("ed").hidden=false;lastLive="";edCaption();
+  $("stage").scrollIntoView({block:"start",behavior:"smooth"});
+}
+function endEditor(){ED=null;appEl.classList.remove("editing");$("ed").hidden=true;$("hint").hidden=false;start(cur,false)}
+function edCaption(){$("edStep").textContent=`Edição · passo ${ED.step+1} de ${EDS.length}`;$("edCap").textContent=EDS[ED.step].c;
+  $("edPrev").disabled=ED.step===0;$("edNext").textContent=ED.step===EDS.length-1?"Do começo":"Próximo ▶";$("edPlay").textContent=ED.playing?"Pausar":(ED.step===EDS.length-1&&ED.u>=1?"Ver de novo":"Continuar")}
+function edGo(i){ED.step=(i+EDS.length)%EDS.length;ED.u=0;ED.playing=true;edCaption()}
+$("edPrev").addEventListener("click",()=>edGo(ED.step-1));
+$("edNext").addEventListener("click",()=>edGo(ED.step+1));
+$("edPlay").addEventListener("click",()=>{if(!ED.playing&&ED.step===EDS.length-1&&ED.u>=1)edGo(0);else{ED.playing=!ED.playing;edCaption()}});
+$("edExit").addEventListener("click",endEditor);
+$("btnEd").addEventListener("click",startEditor);
+function edTick(dt){
+  if(ED.playing){ED.u+=dt/EDS[ED.step].d;if(ED.u>=1){if(ED.step<EDS.length-1){ED.step++;ED.u=0}else{ED.u=1;ED.playing=false}edCaption()}}
+  const es=Object.assign({pt:0,k:1,trim:0},EDS[ED.step].f(clamp(ED.u,0,1)));
+  const P=t=>t/RAW*100;
+  $("ph").style.setProperty("--p",es.pt/RAW);$("tl").style.setProperty("--m",TO/RAW);
+  $("cutL").style.width=(es.trim*P(TI))+"%";$("cutR").style.width=(es.trim*(100-P(TO)))+"%";
+  const k1=$("kd1"),k2=$("kd2"),kl=$("kline");
+  k1.style.left=P(TI)+"%";k1.style.display=es.kf1?"block":"none";k2.style.left=P(TO)+"%";k2.style.display=es.kf2?"block":"none";
+  kl.style.left=P(TI)+"%";kl.style.width=(P(TO)-P(TI))+"%";kl.style.display=es.line?"block":"none";
+  $("kmenu").hidden=!es.menu;$("clk").classList.toggle("on",!!es.clock);
+  $("scv").textContent=Math.round(es.k*100)+"%";
+  ["clip","rowScale","rowAnchor"].forEach(id=>$(id).classList.toggle("hl",es.hl===id));
+  const fr=Math.round(es.pt*30);$("tcv").textContent=`00:${String(Math.floor(fr/30)).padStart(2,"0")}:${String(fr%30).padStart(2,"0")}`;
+  const html=`<span class="demo">PRÉVIA DO EDITOR</span><span>Escala ${Math.round(es.k*100)}%</span>`;if(html!==lastLive){$("live").innerHTML=html;lastLive=html}
+  if(W<=1)return;
+  // guias medidas no primeiro quadro (sem zoom)
+  setTake(TI);sh=0;ch=1;st0();const gT=scr(cam(0,-3.3,18))[1],gB=scr(cam(0,-3,0))[1],an=scr(cam(0,-3,9));
+  setTake(es.pt);const F0=F;F*=es.k;ZK=es.k;render();F=F0;ZK=1;
+  if(es.guides){ctx.save();ctx.globalAlpha=es.guides;ctx.strokeStyle="#4fd1ff";ctx.lineWidth=2;ctx.setLineDash([10,6]);
+    [gT,gB].forEach(y=>{ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()});ctx.setLineDash([]);
+    ctx.font='700 13px "Figtree", sans-serif';ctx.textBaseline="bottom";ctx.textAlign="right";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.55)";
+    [["guia · topo",gT],["guia · base",gB]].forEach(([t,y])=>{ctx.strokeText(t,W-12,y-5);ctx.fillStyle="#4fd1ff";ctx.fillText(t,W-12,y-5)});ctx.restore()}
+  if(es.anchor){const pulse=.6+.4*Math.sin(performance.now()/200);ctx.save();ctx.strokeStyle="#ffb21e";ctx.lineWidth=2.5;ctx.globalAlpha=pulse;
+    ctx.beginPath();ctx.arc(an[0],an[1],16,0,TAU);ctx.moveTo(an[0]-24,an[1]);ctx.lineTo(an[0]+24,an[1]);ctx.moveTo(an[0],an[1]-24);ctx.lineTo(an[0],an[1]+24);ctx.stroke();
+    ctx.globalAlpha=1;ctx.font='700 13px "Figtree", sans-serif';ctx.textBaseline="middle";const tw=ctx.measureText("ponto de ancoragem").width;
+    ctx.fillStyle="rgba(10,14,18,.8)";ctx.fillRect(an[0]+28,an[1]-11,tw+12,22);ctx.fillStyle="#ffb21e";ctx.fillText("ponto de ancoragem",an[0]+34,an[1]);ctx.restore()}
+}
+function st0(){st=Math.sin(0);ct=1}
+
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(ED){edTick(dt)}
+  else if(replay&&run.ep){
+    const ep=run.ep,sg=ep.seg;replay.t+=dt;const tt=clamp(replay.t,0,ep.T);
+    while(replay.j<sg.length-1&&sg[replay.j+1].t-ep.t0<=tt)replay.j++;
+    const f=sg[replay.j];Object.assign(S,{x:f.x,y:f.y,z:f.z,h:f.h,g:f.g,vx:0,vy:0});
+    const k=1+(ep.k-1)*tt/ep.T;
+    const html=`<span class="demo">DEPOIS DA EDIÇÃO</span><span>Zoom ${Math.round(k*100)}%</span>`;if(html!==lastLive){$("live").innerHTML=html;lastLive=html}
+    if(W>1){const F0=F;F*=k;ZK=k;render();F=F0;ZK=1}
+    if(replay.t>ep.T+1){replay=null;lastLive="";showCard(lastCard)}
+  }else{
+    if(!paused)step(dt);
+    if(W>1)render();
+  }
+  requestAnimationFrame(loop);
+}
+resize();start("aprox",false);requestAnimationFrame(loop);
+</script>
+</body></html>
